@@ -173,6 +173,8 @@
     background-color: var(--paper);
     color: var(--charcoal);
     font-family: var(--font-interface);
+    /* Clears the sticky navbar for in-page links such as /#menu. */
+    scroll-padding-top: 4.75rem;
     -webkit-text-size-adjust: 100%;
   }
 

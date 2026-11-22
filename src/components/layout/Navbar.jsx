@@ -32,7 +32,7 @@ export default function Navbar() {
   }, [open]);
 
   return (
-    <header className="border-b border-line bg-paper">
+    <header className="sticky top-0 z-50 border-b border-line bg-paper">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <Link href="/" aria-label="PizzaHub home" className="shrink-0 rounded-sm">
           <BrandLogo />
