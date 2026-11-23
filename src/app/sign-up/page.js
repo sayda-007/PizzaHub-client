@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import AuthLayout from "@/components/auth/AuthLayout";
 import SignUpForm from "@/components/auth/SignUpForm";
+import { safeReturnPath } from "@/lib/safe-return";
 
 export const metadata = {
   title: "Sign Up | PizzaHub",
@@ -36,12 +37,13 @@ export default function SignUpPage({ searchParams }) {
 
 async function SignUpLoader({ searchParams }) {
   const query = await searchParams;
+  const returnTo = safeReturnPath(query?.returnTo, "");
   const initialError =
     query?.auth_error === "google"
       ? "Google sign-up could not be completed. Please try again or use email and password."
       : "";
 
-  return <SignUpForm initialError={initialError} />;
+  return <SignUpForm initialError={initialError} returnTo={returnTo} />;
 }
 
 function AuthFormFallback({ label }) {

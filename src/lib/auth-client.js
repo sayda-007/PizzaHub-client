@@ -1,11 +1,16 @@
 import { createAuthClient } from "better-auth/react";
+import { jwtClient } from "better-auth/client/plugins";
+
+import { safeReturnPath } from "@/lib/safe-return";
 
 /**
  * Better Auth is mounted by the backend at `/api/auth/*`. The same-origin
  * rewrite in next.config.mjs forwards that path to the backend, so the client
- * needs no public backend URL and no credential here.
+ * needs no public backend URL and no credential here. The JWT plugin client
+ * exposes `authClient.token()`, which the order API needs.
  */
 export const authClient = createAuthClient({
+  plugins: [jwtClient()],
   fetchOptions: { credentials: "include" },
 });
 
@@ -38,6 +43,11 @@ export function normalizeAccountRole(value) {
 /** Roles are accepted only from Better Auth's server response. */
 export function getSessionAccountRole(session) {
   return normalizeAccountRole(session?.user?.role);
+}
+
+/** Ordering UI is limited to the customer role; the backend still enforces it. */
+export function canPlaceCustomerOrder(session) {
+  return getSessionAccountRole(session) === ACCOUNT_ROLES.CUSTOMER;
 }
 
 export function getAuthResultRole(result) {
@@ -173,12 +183,17 @@ export function friendlyAuthError(error, fallback) {
   return message;
 }
 
-export function signInWithGoogle({ errorPath = "/sign-in", additionalData } = {}) {
+export function signInWithGoogle({
+  callbackURL = "/menu",
+  newUserCallbackURL = callbackURL,
+  errorPath = "/sign-in",
+  additionalData,
+} = {}) {
   return authClient.signIn.social({
     provider: "google",
-    callbackURL: "/menu",
-    newUserCallbackURL: "/menu?welcome=1",
-    errorCallbackURL: errorPath,
+    callbackURL: safeReturnPath(callbackURL),
+    newUserCallbackURL: safeReturnPath(newUserCallbackURL),
+    errorCallbackURL: safeReturnPath(errorPath, "/sign-in"),
     ...(additionalData ? { additionalData } : {}),
   });
 }

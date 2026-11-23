@@ -12,6 +12,7 @@ import {
 } from "@/components/auth/AuthFields";
 import FormMessage from "@/components/auth/FormMessage";
 import { Button } from "@/components/ui/button";
+import { authHref, safeReturnPath } from "@/lib/safe-return";
 import {
   authClient,
   friendlyAuthError,
@@ -22,8 +23,9 @@ import {
   validatePassword,
 } from "@/lib/auth-client";
 
-export default function SignInForm({ initialError = "" }) {
+export default function SignInForm({ initialError = "", returnTo = "" }) {
   const router = useRouter();
+  const returnPath = safeReturnPath(returnTo, "");
   const fieldId = useId();
   const emailId = `${fieldId}-email`;
   const passwordId = `${fieldId}-password`;
@@ -71,8 +73,13 @@ export default function SignInForm({ initialError = "" }) {
       }
 
       const role = await resolveServerRole(result);
-      setSuccess("Signed in successfully. Taking you to the menu...");
-      router.replace(getPostAuthHref(role));
+      const destination = returnPath || getPostAuthHref(role);
+      setSuccess(
+        returnPath
+          ? "Signed in successfully. Taking you back..."
+          : "Signed in successfully. Taking you to the menu...",
+      );
+      router.replace(destination);
     } catch (error) {
       setFormError(friendlyAuthError(error, "We couldn't sign you in."));
     } finally {
@@ -91,7 +98,11 @@ export default function SignInForm({ initialError = "" }) {
 
     try {
       const result = await signInWithGoogle({
-        errorPath: "/sign-in?auth_error=google",
+        callbackURL: returnPath || "/menu",
+        errorPath: authHref("/sign-in", {
+          returnTo: returnPath,
+          error: "google",
+        }),
       });
 
       if (result?.error) {

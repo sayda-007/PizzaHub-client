@@ -7,9 +7,14 @@ const PUBLIC_MENU_PATH = "/api/menu";
 const REQUEST_TIMEOUT_MS = 8000;
 const LOCATION_PAGE_SIZE = 50;
 const LOCATION_PAGE_CONCURRENCY = 4;
+const ITEM_PAGE_SIZE = 50;
+const ITEM_PAGE_CONCURRENCY = 4;
+const OBJECT_ID_PATTERN = /^[0-9a-f]{24}$/i;
 
 const UNAVAILABLE_MESSAGE =
   "We couldn't load the menu right now. Please try again shortly.";
+const ITEM_NOT_FOUND_MESSAGE =
+  "We couldn't find that menu item. It may have been removed.";
 
 class PublicMenuError extends Error {
   constructor(stage, safeMessage, details = {}) {
@@ -276,6 +281,66 @@ export async function getMenuLocations() {
     );
   } catch {
     return [];
+  }
+}
+
+/**
+ * The backend has no public GET /api/menu/:id route. Its public list already
+ * excludes hidden items, so scan those same cached pages to resolve a detail
+ * URL without exposing private fields or inventing an endpoint.
+ */
+export async function getPublicMenuItem(id) {
+  const itemId = typeof id === "string" ? id.trim().toLowerCase() : "";
+
+  if (!OBJECT_ID_PATTERN.test(itemId)) {
+    return { status: "missing", item: null, message: ITEM_NOT_FOUND_MESSAGE };
+  }
+
+  try {
+    function findMatch(items) {
+      return items.find((item) => item.id.toLowerCase() === itemId) ?? null;
+    }
+
+    function pageOptions(page) {
+      return { ...DEFAULT_MENU_QUERY, page, limit: ITEM_PAGE_SIZE };
+    }
+
+    const firstPage = await getCachedPublicMenu(pageOptions(1));
+    const firstMatch = findMatch(firstPage.items);
+
+    if (firstMatch) {
+      return { status: "ok", item: firstMatch, message: null };
+    }
+
+    const totalPages = firstPage.pagination.totalPages;
+
+    if (totalPages <= 1) {
+      return { status: "missing", item: null, message: ITEM_NOT_FOUND_MESSAGE };
+    }
+
+    let nextPage = 2;
+    let match = null;
+
+    async function worker() {
+      while (!match && nextPage <= totalPages) {
+        const page = nextPage;
+        nextPage += 1;
+        const result = await getCachedPublicMenu(pageOptions(page));
+        match = findMatch(result.items);
+      }
+    }
+
+    const workerCount = Math.min(ITEM_PAGE_CONCURRENCY, totalPages - 1);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+    if (!match) {
+      return { status: "missing", item: null, message: ITEM_NOT_FOUND_MESSAGE };
+    }
+
+    return { status: "ok", item: match, message: null };
+  } catch (error) {
+    logMenuFailure(error);
+    return { status: "error", item: null, message: UNAVAILABLE_MESSAGE };
   }
 }
 

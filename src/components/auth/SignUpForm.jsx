@@ -13,6 +13,7 @@ import {
 } from "@/components/auth/AuthFields";
 import FormMessage from "@/components/auth/FormMessage";
 import { Button } from "@/components/ui/button";
+import { authHref, safeReturnPath } from "@/lib/safe-return";
 import {
   ACCOUNT_ROLES,
   authClient,
@@ -53,8 +54,9 @@ function registrationFieldErrors(error) {
   return fields;
 }
 
-export default function SignUpForm({ initialError = "" }) {
+export default function SignUpForm({ initialError = "", returnTo = "" }) {
   const router = useRouter();
+  const returnPath = safeReturnPath(returnTo, "");
   const fieldId = useId();
   const nameId = `${fieldId}-name`;
   const emailId = `${fieldId}-email`;
@@ -136,11 +138,16 @@ export default function SignUpForm({ initialError = "" }) {
       }
 
       const role = await resolveServerRole(result);
+      const destination = returnPath || getPostAuthHref(role);
       succeeded = true;
       setStatus("success");
-      setSuccess("Account created successfully. Taking you to the menu...");
+      setSuccess(
+        returnPath
+          ? "Account created successfully. Taking you back..."
+          : "Account created successfully. Taking you to the menu...",
+      );
       redirectTimer.current = window.setTimeout(() => {
-        router.replace(getPostAuthHref(role));
+        router.replace(destination);
       }, 1000);
     } catch (error) {
       setFormError(friendlyAuthError(error, "We couldn't create your account."));
@@ -164,7 +171,12 @@ export default function SignUpForm({ initialError = "" }) {
       // Google creates the account on the server. The public role is passed
       // through Better Auth's OAuth data; Admin is never an option here.
       const result = await signInWithGoogle({
-        errorPath: "/sign-up?auth_error=google",
+        callbackURL: returnPath || "/menu",
+        newUserCallbackURL: returnPath || "/menu",
+        errorPath: authHref("/sign-up", {
+          returnTo: returnPath,
+          error: "google",
+        }),
         additionalData: { role: values.role },
       });
 

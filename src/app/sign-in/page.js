@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import AuthLayout from "@/components/auth/AuthLayout";
 import SignInForm from "@/components/auth/SignInForm";
+import { safeReturnPath } from "@/lib/safe-return";
 
 export const metadata = {
   title: "Sign In | PizzaHub",
@@ -36,12 +37,13 @@ export default function SignInPage({ searchParams }) {
 
 async function SignInLoader({ searchParams }) {
   const query = await searchParams;
+  const returnTo = safeReturnPath(query?.returnTo, "");
   const initialError =
     query?.auth_error === "google"
       ? "Google sign-in could not be completed. Please try again or use email and password."
       : "";
 
-  return <SignInForm initialError={initialError} />;
+  return <SignInForm initialError={initialError} returnTo={returnTo} />;
 }
 
 function AuthFormFallback({ label }) {
