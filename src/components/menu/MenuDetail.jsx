@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -17,13 +17,21 @@ import MenuImage from "@/components/menu/MenuImage";
 import { Button } from "@/components/ui/button";
 import { authClient, canPlaceCustomerOrder } from "@/lib/auth-client";
 import { createOrder, OrderApiError } from "@/lib/order-client";
-import { ORDER_FIELD_LIMITS, validateOrderForm } from "@/lib/order-validation";
+import {
+  ORDER_FIELD_LIMITS,
+  todayInputValue,
+  validateOrderForm,
+} from "@/lib/order-validation";
 import { authHref } from "@/lib/safe-return";
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 });
+
+// The calendar date is read from the client only after hydration; this keeps
+// the server-rendered HTML independent of the viewer's local date.
+const subscribeToCalendarDate = () => () => {};
 
 const labelClass =
   "block text-xs font-semibold tracking-[0.14em] text-ink-muted uppercase";
@@ -173,6 +181,11 @@ function OrderForm({ item }) {
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
   const inFlight = useRef(false);
+  const minDate = useSyncExternalStore(
+    subscribeToCalendarDate,
+    todayInputValue,
+    () => "",
+  );
 
   function updateField(name, value) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -268,10 +281,11 @@ function OrderForm({ item }) {
           id={dateId}
           label="Delivery Date"
           type="date"
+          min={minDate}
           value={values.deliveryDate}
           onChange={(event) => updateField("deliveryDate", event.target.value)}
           error={errors.deliveryDate}
-          hint="Use a real calendar date in YYYY-MM-DD format."
+          hint="Choose today or later in YYYY-MM-DD format."
           disabled={submitting}
           required
         />
@@ -336,32 +350,13 @@ function OrderForm({ item }) {
 }
 
 function OrderPanel({ item }) {
-  const [auth, setAuth] = useState({ status: "loading", session: null });
+  const { data: session, isPending, error } = authClient.useSession();
+  const authStatus = isPending
+    ? "loading"
+    : error
+      ? "error"
+      : "ready";
   const signInHref = authHref("/sign-in", { returnTo: `/menu/${item.id}` });
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadSession() {
-      try {
-        const result = await authClient.getSession();
-
-        if (active) {
-          setAuth({ status: "ready", session: result?.data ?? null });
-        }
-      } catch {
-        if (active) {
-          setAuth({ status: "error", session: null });
-        }
-      }
-    }
-
-    loadSession();
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   return (
     <aside className="rounded-sm border border-line bg-surface p-6 sm:p-7">
@@ -370,7 +365,7 @@ function OrderPanel({ item }) {
         <h2 className="font-heading text-2xl text-charcoal">Order this item</h2>
       </div>
 
-      {auth.status === "loading" ? (
+      {authStatus === "loading" ? (
         <div
           className="mt-5 flex items-center gap-2 text-sm text-ink-muted"
           role="status"
@@ -381,7 +376,7 @@ function OrderPanel({ item }) {
         </div>
       ) : null}
 
-      {auth.status === "error" ? (
+      {authStatus === "error" ? (
         <div className="mt-5 space-y-3">
           <p className="text-sm leading-relaxed text-ink-muted">
             We couldn&apos;t check your account right now. Refresh the page or
@@ -393,7 +388,7 @@ function OrderPanel({ item }) {
         </div>
       ) : null}
 
-      {auth.status === "ready" && !auth.session ? (
+      {authStatus === "ready" && !session ? (
         <div className="mt-5 space-y-3">
           <p className="text-sm leading-relaxed text-ink-muted">
             Sign in with a customer account to choose a delivery date and place
@@ -405,14 +400,14 @@ function OrderPanel({ item }) {
         </div>
       ) : null}
 
-      {auth.status === "ready" && auth.session && !canPlaceCustomerOrder(auth.session) ? (
+      {authStatus === "ready" && session && !canPlaceCustomerOrder(session) ? (
         <p className="mt-5 text-sm leading-relaxed text-ink-muted">
           Ordering is available to customer accounts. You&apos;re signed in with
           a different account type, so this item can&apos;t be ordered here.
         </p>
       ) : null}
 
-      {auth.status === "ready" && canPlaceCustomerOrder(auth.session) ? (
+      {authStatus === "ready" && canPlaceCustomerOrder(session) ? (
         <OrderForm item={item} />
       ) : null}
     </aside>
