@@ -17,7 +17,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Environment
 
-`PIZZAHUB_BACKEND_URL` is optional and server-only. It defaults to `https://pizzahub-server-xi.vercel.app`. A bare origin, an origin with a trailing slash, or an accidentally supplied `/api/menu` URL all resolve to the same backend origin; only `/api/menu` is appended by the client. Do not prefix the variable with `NEXT_PUBLIC_`; browser code never reads it.
+`PIZZAHUB_BACKEND_URL` is optional and server-only. It defaults to `https://pizzahub-server-xi.vercel.app`. A bare origin, an origin with a trailing slash, or an accidentally supplied `/api/menu` URL all resolve to the same backend origin. The Next.js rewrite forwards every same-origin `/api/*` request there, so browser code never reads this variable or a backend credential. Do not prefix it with `NEXT_PUBLIC_`.
 
 ## Scripts
 
@@ -33,15 +33,16 @@ Open [http://localhost:3000](http://localhost:3000).
 ```text
 src/
   app/          App Router routes, layout and global styles
-  components/   Shared React components
-    layout/     Layout-level components
+  components/   Shared and feature-specific React components
+    layout/     Site shell, navigation and theme controls
+    dashboard/  Role dashboards and shared states
+    orders/     Customer order history and details
+    vendor/     Vendor menu, order and subscription tools
+    admin/      Admin moderation and management tools
     ui/         Reusable UI primitives
-  lib/          Utilities and helpers
-  hooks/        Custom React hooks
-  contexts/     React contexts
-  config/       Application configuration
+  lib/          API, auth, formatting and validation helpers
 public/
   images/       Static imagery
 ```
 
-> **Note:** This repository contains the initial technical foundation only. The visual identity and full application are implemented in later steps.
+The app includes the public catalog and ordering flow, Better Auth sign-in/sign-up, role-aware customer/vendor/admin dashboards, profile settings, Stripe subscription return handling, and dark theme support. The backend remains the authority for roles, ownership, validation, moderation and payment state.

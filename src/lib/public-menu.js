@@ -4,7 +4,7 @@ import { DEFAULT_MENU_QUERY, normalizeMenuQuery } from "@/lib/menu-query";
 
 const FALLBACK_BACKEND_URL = "https://pizzahub-server-xi.vercel.app";
 const PUBLIC_MENU_PATH = "/api/menu";
-const REQUEST_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 15000;
 const LOCATION_PAGE_SIZE = 50;
 const LOCATION_PAGE_CONCURRENCY = 4;
 const ITEM_PAGE_SIZE = 50;

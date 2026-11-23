@@ -69,9 +69,19 @@
   --sidebar-ring: var(--tomato);
 }
 
-/* Warm dark equivalents for components that react to the .dark class.
-   No theme toggle is introduced in this milestone. */
+/* Warm dark equivalents. The brand tokens are overridden here too so custom
+   utilities such as bg-paper and border-line follow the active theme. */
 .dark {
+  --paper: #1e1b17;
+  --surface: #27221c;
+  --tomato: #d35b4e;
+  --tomato-deep: #e07062;
+  --orange: #d39062;
+  --charcoal: #f4ede2;
+  --ink-muted: #b8ab9a;
+  --olive: #9aa47a;
+  --line: #3d352c;
+
   --background: #1e1b17;
   --foreground: #f4ede2;
   --card: #27221c;

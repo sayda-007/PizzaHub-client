@@ -1,12 +1,21 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { LoaderCircle, LogOut, Menu, UserRound, X } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  LayoutDashboard,
+  LoaderCircle,
+  LogOut,
+  Menu,
+  Settings,
+  UserRound,
+  X,
+} from "lucide-react";
 
 import AccountMenu, { AccountIdentity } from "@/components/layout/AccountMenu";
 import BrandLogo from "@/components/layout/BrandLogo";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import {
   authClient,
@@ -26,7 +35,17 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  const toggleRef = useRef(null);
 
+  function closeMenu(restoreFocus = false) {
+    setOpen(false);
+
+    if (restoreFocus) {
+      toggleRef.current?.focus();
+    }
+  }
+
+  const pathname = usePathname();
   const role = getSessionAccountRole(session);
   const dashboardHref = getDashboardHref(role);
   const links = dashboardHref
@@ -41,6 +60,7 @@ export default function Navbar() {
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         setOpen(false);
+        toggleRef.current?.focus();
       }
     }
 
@@ -91,7 +111,10 @@ export default function Navbar() {
               <li key={item.label}>
                 <Link
                   href={item.href}
-                  className="text-sm font-medium text-ink-muted transition-colors hover:text-tomato"
+                  aria-current={pathname === item.href ? "page" : undefined}
+                  className={`text-sm font-medium transition-colors hover:text-tomato ${
+                    pathname === item.href ? "text-tomato" : "text-ink-muted"
+                  }`}
                 >
                   {item.label}
                 </Link>
@@ -100,7 +123,8 @@ export default function Navbar() {
           </ul>
         </nav>
 
-        <div className="hidden md:block">
+        <div className="hidden items-center gap-2 md:flex">
+          <ThemeToggle />
           {isPending ? (
             <SessionPlaceholder />
           ) : session?.user ? (
@@ -117,21 +141,25 @@ export default function Navbar() {
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          aria-expanded={open}
-          aria-controls="mobile-navigation"
-          aria-label={open ? "Close navigation menu" : "Open navigation menu"}
-          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-sm border border-line px-3 text-sm font-medium text-charcoal md:hidden"
-        >
-          {open ? (
-            <X aria-hidden="true" className="size-5" />
-          ) : (
-            <Menu aria-hidden="true" className="size-5" />
-          )}
-          <span>Menu</span>
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
+          <button
+            ref={toggleRef}
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-controls="mobile-navigation"
+            aria-label={open ? "Close navigation menu" : "Open navigation menu"}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-sm border border-line px-3 text-sm font-medium text-charcoal"
+          >
+            {open ? (
+              <X aria-hidden="true" className="size-5" />
+            ) : (
+              <Menu aria-hidden="true" className="size-5" />
+            )}
+            <span>Menu</span>
+          </button>
+        </div>
       </div>
 
       <nav
@@ -163,6 +191,7 @@ export default function Navbar() {
               onLogout={handleLogout}
               loggingOut={loggingOut}
               logoutError={logoutError}
+              onNavigate={() => setOpen(false)}
             />
           ) : (
             <li className="py-4">
@@ -181,11 +210,41 @@ export default function Navbar() {
 
 function ReturnAwareSignedOutActions({ mobile = false, onNavigate }) {
   const pathname = usePathname();
-  const returnTo = pathname && !pathname.startsWith("/sign-") ? pathname : "";
+  const searchParams = useSearchParams();
+  const [hash, setHash] = useState("");
+
+  useEffect(() => {
+    // Hash is only available on the client; sync it after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHash(window.location.hash);
+  }, []);
+
+  const query = searchParams.toString();
+  const currentPath =
+    pathname && !pathname.startsWith("/sign-")
+      ? `${pathname}${query ? `?${query}` : ""}${hash}`
+      : "";
 
   return (
-    <SignedOutActions mobile={mobile} onNavigate={onNavigate} returnTo={returnTo} />
+    <SignedOutActions mobile={mobile} onNavigate={onNavigate} returnTo={currentPath} />
   );
+}
+
+function mobileAccountLinks(role) {
+  const dashboardHref = getDashboardHref(role);
+
+  return [
+    ...(dashboardHref
+      ? [
+          {
+            href: dashboardHref,
+            label: role === "customer" ? "My orders" : "Dashboard",
+            icon: LayoutDashboard,
+          },
+        ]
+      : []),
+    { href: "/profile", label: "Profile settings", icon: Settings },
+  ];
 }
 
 function SignedOutActions({ mobile = false, onNavigate, returnTo = "" }) {
@@ -231,7 +290,7 @@ function SignedOutActions({ mobile = false, onNavigate, returnTo = "" }) {
   );
 }
 
-function MobileAccount({ session, onLogout, loggingOut, logoutError }) {
+function MobileAccount({ session, onLogout, loggingOut, logoutError, onNavigate }) {
   return (
     <li className="py-4">
       <div className="flex items-start gap-3">
@@ -241,7 +300,21 @@ function MobileAccount({ session, onLogout, loggingOut, logoutError }) {
         <div className="min-w-0 flex-1">
           <AccountIdentity session={session} />
 
-          <div className="mt-4 grid gap-2">
+          <nav aria-label="Mobile account links" className="mt-4 grid gap-1">
+            {mobileAccountLinks(getSessionAccountRole(session)).map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={onNavigate}
+                className="flex items-center gap-2 rounded-sm px-3 py-2 text-sm text-charcoal transition-colors hover:bg-muted hover:text-tomato"
+              >
+                <link.icon aria-hidden="true" className="size-4 text-ink-muted" />
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="mt-3 grid gap-2">
             <button
               type="button"
               onClick={onLogout}

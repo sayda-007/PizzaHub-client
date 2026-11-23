@@ -149,6 +149,11 @@ function OrderConfirmation({ order, onReset }) {
       </div>
 
       <div className="flex flex-wrap gap-3">
+        {order.id ? (
+          <Button asChild className="h-11 bg-tomato px-4 text-paper hover:bg-tomato-deep hover:text-paper">
+            <Link href={`/orders/${order.id}`}>Track this order</Link>
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="outline"
@@ -157,8 +162,8 @@ function OrderConfirmation({ order, onReset }) {
         >
           Place another order
         </Button>
-        <Button asChild className="h-11 bg-tomato px-4 text-paper hover:bg-tomato-deep hover:text-paper">
-          <Link href="/menu">Back to menu</Link>
+        <Button asChild variant="ghost" className="h-11 text-charcoal hover:text-tomato">
+          <Link href="/orders">All my orders</Link>
         </Button>
       </div>
     </div>

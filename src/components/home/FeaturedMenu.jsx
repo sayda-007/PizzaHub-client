@@ -87,9 +87,11 @@ export default function FeaturedMenu({ items = [], status = "ok" }) {
                     </div>
                   </figure>
                   <div className={index === 2 ? "mt-6 md:mt-0" : "mt-5"}>
-                    <p className="text-xs font-semibold tracking-[0.18em] text-olive uppercase">
-                      {item.category}
-                    </p>
+                    {item.category ? (
+                      <p className="text-xs font-semibold tracking-[0.18em] text-olive uppercase">
+                        {item.category}
+                      </p>
+                    ) : null}
                     <h3 className="mt-2 font-heading text-2xl font-medium text-charcoal">
                       {item.itemName}
                     </h3>

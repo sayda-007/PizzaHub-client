@@ -42,14 +42,13 @@ const nextConfig = {
     },
   },
   async rewrites() {
+    // All browser-facing APIs stay first-party. This keeps Better Auth cookies
+    // same-site and lets JWT-protected pages use relative URLs without ever
+    // exposing the backend origin to the browser.
     return [
       {
-        source: "/api/auth/:path*",
-        destination: `${backendOrigin()}/api/auth/:path*`,
-      },
-      {
-        source: "/api/orders",
-        destination: `${backendOrigin()}/api/orders`,
+        source: "/api/:path*",
+        destination: `${backendOrigin()}/api/:path*`,
       },
     ];
   },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -51,9 +51,12 @@ export function TextField({ id, label, error, hint, ...inputProps }) {
   );
 }
 
-export function PasswordField({ id, label, error, ...inputProps }) {
+export function PasswordField({ id, label, error, hint, ...inputProps }) {
   const [visible, setVisible] = useState(false);
-  const describedBy = error ? `${id}-error` : undefined;
+  const describedBy =
+    [hint ? `${id}-hint` : null, error ? `${id}-error` : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   return (
     <div>
@@ -83,6 +86,11 @@ export function PasswordField({ id, label, error, ...inputProps }) {
           )}
         </button>
       </div>
+      {hint ? (
+        <p id={`${id}-hint`} className="mt-1.5 text-xs text-ink-muted">
+          {hint}
+        </p>
+      ) : null}
       <FieldError id={`${id}-error`}>{error}</FieldError>
     </div>
   );
@@ -100,8 +108,11 @@ const ROLE_OPTIONS = Object.freeze([
 ]);
 
 export function RolePicker({ value, onChange, error, name = "role" }) {
+  const generatedId = useId();
+  const errorId = `${generatedId}-role-error`;
+
   return (
-    <fieldset aria-describedby={error ? "account-type-error" : undefined}>
+    <fieldset aria-describedby={error ? errorId : undefined}>
       <legend className={labelClass}>Account type</legend>
       <div className="mt-2 grid gap-3 sm:grid-cols-2">
         {ROLE_OPTIONS.map((option) => {
@@ -136,7 +147,7 @@ export function RolePicker({ value, onChange, error, name = "role" }) {
           );
         })}
       </div>
-      <FieldError id="account-type-error">{error}</FieldError>
+      <FieldError id={errorId}>{error}</FieldError>
     </fieldset>
   );
 }

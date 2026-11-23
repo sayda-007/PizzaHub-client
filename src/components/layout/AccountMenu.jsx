@@ -1,9 +1,37 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, LoaderCircle, LogOut, UserRound } from "lucide-react";
+import Link from "next/link";
+import {
+  ChevronDown,
+  LayoutDashboard,
+  LoaderCircle,
+  LogOut,
+  Settings,
+  UserRound,
+} from "lucide-react";
 
-import { ROLE_LABELS, getSessionAccountRole } from "@/lib/auth-client";
+import {
+  ACCOUNT_ROLES,
+  ROLE_LABELS,
+  getDashboardHref,
+  getSessionAccountRole,
+} from "@/lib/auth-client";
+
+function accountLinks(role) {
+  const dashboard = getDashboardHref(role);
+  const dashboardLabel =
+    role === ACCOUNT_ROLES.CUSTOMER
+      ? "My orders"
+      : role === ACCOUNT_ROLES.VENDOR
+        ? "Vendor dashboard"
+        : "Admin dashboard";
+
+  return [
+    ...(dashboard ? [{ href: dashboard, label: dashboardLabel, icon: LayoutDashboard }] : []),
+    { href: "/profile", label: "Profile settings", icon: Settings },
+  ];
+}
 
 export function AccountIdentity({ session }) {
   const user = session?.user;
@@ -120,6 +148,20 @@ export default function AccountMenu({ session, onLogout, loggingOut, logoutError
               {logoutError}
             </p>
           ) : null}
+
+          <nav aria-label="Account links" className="border-t border-line py-1">
+            {accountLinks(getSessionAccountRole(session)).map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-charcoal transition-colors hover:bg-muted hover:text-tomato"
+              >
+                <link.icon aria-hidden="true" className="size-4 text-ink-muted" />
+                {link.label}
+              </Link>
+            ))}
+          </nav>
 
           <button
             type="button"

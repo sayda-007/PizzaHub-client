@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import Link from "next/link";
 
 import AuthLayout from "@/components/auth/AuthLayout";
+import AuthSwitchLink from "@/components/auth/AuthSwitchLink";
 import SignInForm from "@/components/auth/SignInForm";
 import { safeReturnPath } from "@/lib/safe-return";
 
@@ -19,12 +19,9 @@ export default function SignInPage({ searchParams }) {
       footer={
         <>
           New to PizzaHub?{" "}
-          <Link
-            href="/sign-up"
-            className="font-semibold text-tomato hover:text-tomato-deep"
-          >
-            Create an account
-          </Link>
+          <Suspense fallback={<span className="font-semibold text-tomato">Create an account</span>}>
+            <AuthSwitchLink href="/sign-up">Create an account</AuthSwitchLink>
+          </Suspense>
         </>
       }
     >

@@ -10,7 +10,14 @@ const explore = [
 
 const ordering = [
   { label: "Browse menus", href: "/menu" },
+  { label: "Track my orders", href: "/orders" },
   { label: "How ordering works", href: "/#how-it-works" },
+];
+
+const accounts = [
+  { label: "Profile settings", href: "/profile" },
+  { label: "Vendor area", href: "/vendor" },
+  { label: "Admin area", href: "/admin" },
 ];
 
 async function getCopyrightYear() {
@@ -25,7 +32,7 @@ export default async function Footer() {
   return (
     <footer className="bg-charcoal text-paper">
       <div className="mx-auto w-full max-w-7xl px-5 py-14 sm:px-8 sm:py-16">
-        <div className="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr] md:gap-10">
+        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:gap-10">
           <div className="max-w-sm">
             <BrandLogo
               wordmarkClassName="text-2xl text-paper"
@@ -57,6 +64,22 @@ export default async function Footer() {
             <h2 className="eyebrow text-orange">Ordering</h2>
             <ul className="mt-5 space-y-3">
               {ordering.map((item) => (
+                <li key={item.label}>
+                  <Link
+                    href={item.href}
+                    className="text-sm text-paper/70 transition-colors hover:text-paper"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <nav aria-label="Footer account">
+            <h2 className="eyebrow text-orange">Account</h2>
+            <ul className="mt-5 space-y-3">
+              {accounts.map((item) => (
                 <li key={item.label}>
                   <Link
                     href={item.href}

@@ -17,27 +17,24 @@ export const authClient = createAuthClient({
 export const ACCOUNT_ROLES = Object.freeze({
   CUSTOMER: "customer",
   VENDOR: "vendor",
+  ADMIN: "admin",
 });
 
 export const ROLE_LABELS = Object.freeze({
   [ACCOUNT_ROLES.CUSTOMER]: "Customer",
   [ACCOUNT_ROLES.VENDOR]: "Vendor",
+  [ACCOUNT_ROLES.ADMIN]: "Admin",
 });
 
-/**
- * Role-specific dashboards are not part of this milestone. Keep the mapping
- * explicit so navigation can use it as soon as those pages exist. A `null`
- * route means "do not render a Dashboard link yet" rather than faking one.
- */
+/** Each role has one real destination; the backend remains the role authority. */
 const DASHBOARD_ROUTES = Object.freeze({
-  [ACCOUNT_ROLES.CUSTOMER]: null,
-  [ACCOUNT_ROLES.VENDOR]: null,
+  [ACCOUNT_ROLES.CUSTOMER]: "/orders",
+  [ACCOUNT_ROLES.VENDOR]: "/vendor",
+  [ACCOUNT_ROLES.ADMIN]: "/admin",
 });
 
 export function normalizeAccountRole(value) {
-  return value === ACCOUNT_ROLES.CUSTOMER || value === ACCOUNT_ROLES.VENDOR
-    ? value
-    : null;
+  return Object.values(ACCOUNT_ROLES).includes(value) ? value : null;
 }
 
 /** Roles are accepted only from Better Auth's server response. */
@@ -58,7 +55,7 @@ export function resolveAuthenticatedRole(session, result) {
   return getSessionAccountRole(session) ?? getAuthResultRole(result);
 }
 
-/** Returns null while a role-specific dashboard has not been implemented. */
+/** Returns the dashboard route for a known role, or null for unknown roles. */
 export function getDashboardHref(role) {
   return DASHBOARD_ROUTES[normalizeAccountRole(role)] ?? null;
 }

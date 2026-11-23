@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import Link from "next/link";
 
 import AuthLayout from "@/components/auth/AuthLayout";
+import AuthSwitchLink from "@/components/auth/AuthSwitchLink";
 import SignUpForm from "@/components/auth/SignUpForm";
 import { safeReturnPath } from "@/lib/safe-return";
 
@@ -19,12 +19,9 @@ export default function SignUpPage({ searchParams }) {
       footer={
         <>
           Already have an account?{" "}
-          <Link
-            href="/sign-in"
-            className="font-semibold text-tomato hover:text-tomato-deep"
-          >
-            Sign in
-          </Link>
+          <Suspense fallback={<span className="font-semibold text-tomato">Sign in</span>}>
+            <AuthSwitchLink href="/sign-in">Sign in</AuthSwitchLink>
+          </Suspense>
         </>
       }
     >
