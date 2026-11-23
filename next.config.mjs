@@ -1,3 +1,25 @@
+const DEFAULT_BACKEND_ORIGIN = "https://pizzahub-server-xi.vercel.app";
+
+/**
+ * Resolve an origin only. The backend owns `/api/auth/*`, so the rewrite below
+ * must add that path once. A configured value may be a bare origin or may
+ * accidentally include `/api/menu`; neither should produce `/api/api/...`.
+ * This value stays server-side; no NEXT_PUBLIC_ credential is needed.
+ */
+function backendOrigin() {
+  const configured = process.env.PIZZAHUB_BACKEND_URL?.trim();
+  const candidate = configured || DEFAULT_BACKEND_ORIGIN;
+  const withScheme = /^https?:\/\//i.test(candidate)
+    ? candidate
+    : `https://${candidate}`;
+
+  try {
+    return new URL(withScheme).origin;
+  } catch {
+    return DEFAULT_BACKEND_ORIGIN;
+  }
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /* config options here */
@@ -18,6 +40,14 @@ const nextConfig = {
         as: "*.css",
       },
     },
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/auth/:path*",
+        destination: `${backendOrigin()}/api/auth/:path*`,
+      },
+    ];
   },
 };
 

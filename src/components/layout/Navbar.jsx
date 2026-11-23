@@ -2,45 +2,91 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LoaderCircle, LogOut, Menu, UserRound, X } from "lucide-react";
+
+import AccountMenu, { AccountIdentity } from "@/components/layout/AccountMenu";
 import BrandLogo from "@/components/layout/BrandLogo";
 import { Button } from "@/components/ui/button";
+import {
+  authClient,
+  getDashboardHref,
+  getSessionAccountRole,
+} from "@/lib/auth-client";
 
 const navigation = [
   { label: "Home", href: "/" },
-  { label: "Menu", href: "/menu" },
-  { label: "Our Story", href: "/#our-story" },
-  { label: "How It Works", href: "/#how-it-works" },
+  { label: "Browse Menu", href: "/menu" },
 ];
 
 export default function Navbar() {
+  const { data: session, isPending } = authClient.useSession();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
+  const role = getSessionAccountRole(session);
+  const dashboardHref = getDashboardHref(role);
+  const links = dashboardHref
+    ? [...navigation, { label: "Dashboard", href: dashboardHref }]
+    : navigation;
 
   useEffect(() => {
     if (!open) {
-      return;
+      return undefined;
     }
 
-    const handleKeyDown = (event) => {
+    function handleKeyDown(event) {
       if (event.key === "Escape") {
         setOpen(false);
       }
-    };
+    }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open]);
 
+  async function handleLogout() {
+    if (loggingOut) {
+      return;
+    }
+
+    setLoggingOut(true);
+    setLogoutError("");
+
+    try {
+      const result = await authClient.signOut();
+
+      if (result?.error) {
+        setLogoutError("We couldn't sign you out. Please try again.");
+        return;
+      }
+
+      setOpen(false);
+      router.refresh();
+    } catch {
+      setLogoutError("We couldn't sign you out. Please try again.");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-paper">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <Link href="/" aria-label="PizzaHub home" className="shrink-0 rounded-sm">
+        <Link
+          href="/"
+          aria-label="PizzaHub home"
+          onClick={() => setOpen(false)}
+          className="shrink-0 rounded-sm"
+        >
           <BrandLogo />
         </Link>
 
         <nav aria-label="Primary" className="hidden md:block">
           <ul className="flex items-center gap-8">
-            {navigation.map((item) => (
+            {links.map((item) => (
               <li key={item.label}>
                 <Link
                   href={item.href}
@@ -54,9 +100,18 @@ export default function Navbar() {
         </nav>
 
         <div className="hidden md:block">
-          <Button asChild className="px-4">
-            <Link href="/menu">Order Now</Link>
-          </Button>
+          {isPending ? (
+            <SessionPlaceholder />
+          ) : session?.user ? (
+            <AccountMenu
+              session={session}
+              onLogout={handleLogout}
+              loggingOut={loggingOut}
+              logoutError={logoutError}
+            />
+          ) : (
+            <SignedOutActions />
+          )}
         </div>
 
         <button
@@ -83,7 +138,7 @@ export default function Navbar() {
         className="border-t border-line bg-paper md:hidden"
       >
         <ul className="mx-auto flex w-full max-w-7xl flex-col px-5 py-2 sm:px-8">
-          {navigation.map((item) => (
+          {links.map((item) => (
             <li key={item.label} className="border-b border-line">
               <Link
                 href={item.href}
@@ -94,15 +149,109 @@ export default function Navbar() {
               </Link>
             </li>
           ))}
-          <li className="py-4">
-            <Button asChild className="w-full">
-              <Link href="/menu" onClick={() => setOpen(false)}>
-                Order Now
-              </Link>
-            </Button>
-          </li>
+
+          {isPending ? (
+            <li className="py-4">
+              <SessionPlaceholder />
+            </li>
+          ) : session?.user ? (
+            <MobileAccount
+              session={session}
+              onLogout={handleLogout}
+              loggingOut={loggingOut}
+              logoutError={logoutError}
+            />
+          ) : (
+            <li className="py-4">
+              <SignedOutActions mobile onNavigate={() => setOpen(false)} />
+            </li>
+          )}
         </ul>
       </nav>
     </header>
+  );
+}
+
+function SignedOutActions({ mobile = false, onNavigate }) {
+  if (mobile) {
+    return (
+      <div className="grid gap-3">
+        <Button
+          asChild
+          variant="outline"
+          className="h-11 w-full border-line bg-paper text-charcoal hover:bg-muted hover:text-charcoal"
+        >
+          <Link href="/sign-in" onClick={onNavigate}>
+            Sign In
+          </Link>
+        </Button>
+        <Button
+          asChild
+          className="h-11 w-full bg-tomato text-paper hover:bg-tomato-deep hover:text-paper"
+        >
+          <Link href="/sign-up" onClick={onNavigate}>
+            Sign Up
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button asChild variant="ghost" className="text-charcoal hover:text-tomato">
+        <Link href="/sign-in">Sign In</Link>
+      </Button>
+      <Button
+        asChild
+        className="bg-tomato px-4 text-paper hover:bg-tomato-deep hover:text-paper"
+      >
+        <Link href="/sign-up">Sign Up</Link>
+      </Button>
+    </div>
+  );
+}
+
+function MobileAccount({ session, onLogout, loggingOut, logoutError }) {
+  return (
+    <li className="py-4">
+      <div className="flex items-start gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-tomato/10 text-tomato">
+          <UserRound aria-hidden="true" className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <AccountIdentity session={session} />
+
+          <div className="mt-4 grid gap-2">
+            <button
+              type="button"
+              onClick={onLogout}
+              disabled={loggingOut}
+              className="flex items-center gap-2 rounded-sm border border-line px-3 py-2 text-left text-sm font-medium text-charcoal hover:border-tomato/40 hover:text-tomato disabled:opacity-60"
+            >
+              {loggingOut ? (
+                <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+              ) : (
+                <LogOut aria-hidden="true" className="size-4" />
+              )}
+              {loggingOut ? "Signing out..." : "Log out"}
+            </button>
+            {logoutError ? (
+              <p role="alert" className="text-xs text-destructive">
+                {logoutError}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function SessionPlaceholder() {
+  return (
+    <div className="h-10 w-32 animate-pulse rounded-sm border border-line bg-muted">
+      <span className="sr-only">Checking account...</span>
+    </div>
   );
 }
