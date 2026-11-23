@@ -17,7 +17,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Environment
 
-`PIZZAHUB_BACKEND_URL` is optional and server-only. It sets the origin used by the public menu fetch and defaults to `https://pizzahub-server-xi.vercel.app`. Do not prefix it with `NEXT_PUBLIC_`; browser code never reads it.
+`PIZZAHUB_BACKEND_URL` is optional and server-only. It defaults to `https://pizzahub-server-xi.vercel.app`. A bare origin, an origin with a trailing slash, or an accidentally supplied `/api/menu` URL all resolve to the same backend origin; only `/api/menu` is appended by the client. Do not prefix the variable with `NEXT_PUBLIC_`; browser code never reads it.
 
 ## Scripts
 

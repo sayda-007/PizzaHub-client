@@ -65,13 +65,14 @@ export default function Navbar() {
           aria-expanded={open}
           aria-controls="mobile-navigation"
           aria-label={open ? "Close navigation menu" : "Open navigation menu"}
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-sm border border-line text-charcoal md:hidden"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-sm border border-line px-3 text-sm font-medium text-charcoal md:hidden"
         >
           {open ? (
             <X aria-hidden="true" className="size-5" />
           ) : (
             <Menu aria-hidden="true" className="size-5" />
           )}
+          <span>Menu</span>
         </button>
       </div>
 
