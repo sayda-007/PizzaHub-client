@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   CakeSlice,
   ChevronDown,
@@ -79,6 +80,16 @@ async function MenuBrowser({ searchParams }) {
   };
   const menu = await getPublicMenu(query);
   const { limit, totalItems, totalPages } = menu.pagination;
+
+  // An out-of-range page would otherwise look like an empty menu.
+  if (
+    menu.status === "ok" &&
+    query.page > 1 &&
+    query.page > Math.max(totalPages, 1)
+  ) {
+    redirect(menuHref(query, { page: Math.max(totalPages, 1) }));
+  }
+
   const currentPage = Math.min(
     Math.max(menu.pagination.page, 1),
     Math.max(totalPages, 1),
