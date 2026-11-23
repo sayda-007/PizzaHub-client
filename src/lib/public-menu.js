@@ -5,6 +5,8 @@ import { DEFAULT_MENU_QUERY, normalizeMenuQuery } from "@/lib/menu-query";
 const FALLBACK_BACKEND_URL = "https://pizzahub-server-xi.vercel.app";
 const PUBLIC_MENU_PATH = "/api/menu";
 const REQUEST_TIMEOUT_MS = 8000;
+const LOCATION_PAGE_SIZE = 50;
+const LOCATION_PAGE_CONCURRENCY = 4;
 
 const UNAVAILABLE_MESSAGE =
   "We couldn't load the menu right now. Please try again shortly.";
@@ -199,6 +201,81 @@ export async function getPublicMenu(query = DEFAULT_MENU_QUERY) {
   } catch (error) {
     logMenuFailure(error);
     return unavailable(options);
+  }
+}
+
+/**
+ * Location values can only come from real menu items; the public API has no
+ * separate locations endpoint. Read every page of the unfiltered menu so a
+ * location that appears only after the first 50 items is still offered.
+ *
+ * Each page uses the same cached fetch as the customer menu, with a distinct
+ * page argument. A small worker pool keeps concurrent requests bounded. Any
+ * failed page rejects the whole collection; the catch below deliberately
+ * returns no options rather than presenting a partial list as complete. It
+ * stays quiet because the customer-facing menu request owns the logged error
+ * and error state.
+ */
+export async function getMenuLocations() {
+  try {
+    const locations = new Map();
+
+    function addLocations(items) {
+      for (const item of items) {
+        const location = item.location;
+
+        if (!location) {
+          continue;
+        }
+
+        const key = location.toLowerCase();
+        const existing = locations.get(key);
+
+        // Keep one stable spelling when the backend contains casing variants.
+        if (!existing || location < existing) {
+          locations.set(key, location);
+        }
+      }
+    }
+
+    async function fetchPage(page) {
+      const menu = await getCachedPublicMenu({
+        ...DEFAULT_MENU_QUERY,
+        page,
+        limit: LOCATION_PAGE_SIZE,
+      });
+
+      addLocations(menu.items);
+      return menu.pagination.totalPages;
+    }
+
+    const totalPages = await fetchPage(1);
+
+    if (totalPages > 1) {
+      let nextPage = 2;
+      const workerCount = Math.min(
+        LOCATION_PAGE_CONCURRENCY,
+        totalPages - 1,
+      );
+
+      async function worker() {
+        while (nextPage <= totalPages) {
+          const page = nextPage;
+          nextPage += 1;
+          await fetchPage(page);
+        }
+      }
+
+      await Promise.all(
+        Array.from({ length: workerCount }, () => worker()),
+      );
+    }
+
+    return [...locations.values()].sort((left, right) =>
+      left.localeCompare(right),
+    );
+  } catch {
+    return [];
   }
 }
 

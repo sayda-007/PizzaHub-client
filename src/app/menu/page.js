@@ -1,16 +1,33 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import {
+  CakeSlice,
+  ChevronDown,
+  Flame,
+  Leaf,
+  MapPin,
+  Pizza,
+  Search,
+  SlidersHorizontal,
+  Soup,
+  Sparkles,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
 
 import MenuCard from "@/components/menu/MenuCard";
 import {
   DEFAULT_MENU_QUERY,
   MENU_CATEGORIES,
   MENU_SORT_OPTIONS,
+  activeMenuFilters,
+  canonicalizeMenuLocation,
+  filterMenuHref,
   hasActiveMenuFilters,
   menuHref,
   normalizeMenuQuery,
 } from "@/lib/menu-query";
-import { getPublicMenu } from "@/lib/public-menu";
+import { getMenuLocations, getPublicMenu } from "@/lib/public-menu";
 
 export const metadata = {
   title: "Browse Menu | PizzaHub",
@@ -21,7 +38,16 @@ export const metadata = {
 const labelClass =
   "block text-xs font-semibold tracking-[0.14em] text-ink-muted uppercase";
 const controlClass =
-  "mt-2 w-full rounded-sm border border-line bg-paper px-3 py-2.5 text-sm text-charcoal placeholder:text-ink-muted";
+  "mt-2 h-11 w-full appearance-none rounded-sm border border-line bg-paper px-3 text-sm text-charcoal placeholder:text-ink-muted";
+
+const CATEGORY_ICONS = Object.freeze({
+  "Classic Pizzas": Pizza,
+  "Vegetarian Pizzas": Leaf,
+  "Meat Lovers": Flame,
+  "Specialty / Gourmet Pizzas": Sparkles,
+  "Sides & Appetizers": Soup,
+  "Beverages & Desserts": CakeSlice,
+});
 
 export default function MenuPage({ searchParams }) {
   return (
@@ -45,44 +71,62 @@ export default function MenuPage({ searchParams }) {
 }
 
 async function MenuBrowser({ searchParams }) {
-  const query = normalizeMenuQuery(await searchParams);
+  const rawQuery = normalizeMenuQuery(await searchParams);
+  const locations = await getMenuLocations();
+  const query = {
+    ...rawQuery,
+    location: canonicalizeMenuLocation(rawQuery.location, locations),
+  };
   const menu = await getPublicMenu(query);
   const { limit, totalItems, totalPages } = menu.pagination;
   const currentPage = Math.min(
     Math.max(menu.pagination.page, 1),
     Math.max(totalPages, 1),
   );
-  const startItem =
-    totalItems === 0 ? 0 : (currentPage - 1) * limit + 1;
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * limit + 1;
   const endItem = Math.min(currentPage * limit, totalItems);
   const hasFilters = hasActiveMenuFilters(query);
 
   return (
     <>
-      <MenuFilters query={query} />
+      <MenuFilters query={query} locations={locations} />
+      <ActiveFilters query={query} />
 
       {menu.status === "error" ? (
-        <MenuNotice title="The menu is unavailable">{menu.message}</MenuNotice>
-      ) : menu.items.length === 0 ? (
-        <MenuNotice title="No matching menu items">
-          Try a different search, category, or location. Category and location
-          filters must match the menu item exactly.
+        <MenuNotice title="The menu is unavailable" tone="error">
+          {menu.message}
         </MenuNotice>
-      ) : (
-        <>
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-xs text-ink-muted">
-            <p>
-              Showing {startItem}&ndash;{endItem} of {totalItems} menu items
-              {totalPages > 1 ? ` (page ${currentPage} of ${totalPages})` : null}.
-            </p>
-            {hasFilters ? (
+      ) : totalItems === 0 ? (
+        hasFilters ? (
+          <MenuNotice title="No matches for these filters">
+            Try a different search, category, or location. Removing a filter
+            often brings more items back.
+            <div className="mt-5">
               <Link
                 href="/menu"
-                className="font-medium text-charcoal underline underline-offset-4 hover:text-tomato"
+                className="inline-flex rounded-sm bg-tomato px-4 py-2 text-sm font-semibold text-paper hover:bg-tomato-deep hover:text-paper"
               >
                 Clear all filters
               </Link>
-            ) : null}
+            </div>
+          </MenuNotice>
+        ) : (
+          <MenuNotice title="The menu is being prepared">
+            There are no approved menu items available right now. Please check
+            back soon.
+          </MenuNotice>
+        )
+      ) : (
+        <>
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs text-ink-muted">
+            <p aria-live="polite">
+              <span className="font-semibold text-charcoal">{totalItems}</span>{" "}
+              {hasFilters ? "matching menu items" : "menu items available"}.
+            </p>
+            <p>
+              Showing {startItem}&ndash;{endItem}
+              {totalPages > 1 ? ` (page ${currentPage} of ${totalPages})` : null}.
+            </p>
           </div>
 
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
@@ -98,78 +142,127 @@ async function MenuBrowser({ searchParams }) {
   );
 }
 
-function MenuFilters({ query }) {
-  const preserveLimit = query.limit !== DEFAULT_MENU_QUERY.limit;
+function MenuFilters({ query, locations }) {
+  const formKey = [
+    query.search,
+    query.category,
+    query.location,
+    query.sort,
+    query.limit,
+    locations.join("|"),
+  ].join("::");
 
   return (
     <form
-      key={`${query.search}|${query.category}|${query.location}|${query.sort}|${query.page}|${query.limit}`}
+      key={formKey}
       action="/menu"
       method="get"
       aria-label="Filter menu"
-      className="mt-10 rounded-sm border border-line bg-surface p-5 sm:p-6"
+      className="mt-10 rounded-sm border border-line bg-surface p-5 shadow-[0_18px_45px_-38px_rgba(41,37,31,0.45)] sm:p-6"
     >
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <label htmlFor="menu-search" className={labelClass}>
-            Search
-          </label>
+      <div>
+        <label htmlFor="menu-search" className={labelClass}>
+          Search the menu
+        </label>
+        <div className="relative mt-2">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-ink-muted"
+          />
           <input
             id="menu-search"
             name="search"
             type="search"
             defaultValue={query.search}
             maxLength={100}
-            placeholder="Pizza, dessert, sides..."
-            aria-describedby="menu-search-help"
-            className={controlClass}
+            placeholder="Search for your favourite pizza..."
+            className="h-14 w-full rounded-sm border border-line bg-paper pr-28 pl-12 text-base text-charcoal placeholder:text-ink-muted"
           />
-          <p id="menu-search-help" className="mt-1.5 text-xs text-ink-muted">
-            Searches item names and descriptions.
-          </p>
+          {query.search ? (
+            <Link
+              href={filterMenuHref(query, { search: "" })}
+              className="absolute top-1/2 right-3 inline-flex -translate-y-1/2 items-center gap-1 rounded-sm px-2 py-1 text-xs font-semibold text-ink-muted hover:text-tomato"
+            >
+              <X aria-hidden="true" className="size-3.5" />
+              Clear
+            </Link>
+          ) : null}
         </div>
+        <p className="mt-1.5 text-xs text-ink-muted">
+          Find menu items by name.
+        </p>
+      </div>
 
-        <div>
-          <label htmlFor="menu-category" className={labelClass}>
-            Category
-          </label>
-          <input
-            id="menu-category"
-            name="category"
-            type="text"
-            list="menu-category-options"
-            defaultValue={query.category}
-            maxLength={120}
-            placeholder="Exact category name"
-            aria-describedby="menu-category-help"
-            className={controlClass}
-          />
-          <datalist id="menu-category-options">
-            {MENU_CATEGORIES.map((category) => (
-              <option key={category} value={category} />
-            ))}
-          </datalist>
-          <p id="menu-category-help" className="mt-1.5 text-xs text-ink-muted">
-            Suggestions are PizzaHub categories; matching is exact.
-          </p>
+      <div className="mt-8">
+        <p id="menu-categories-label" className={labelClass}>
+          Categories
+        </p>
+        <div
+          role="group"
+          aria-labelledby="menu-categories-label"
+          className="mt-3 flex flex-wrap gap-2"
+        >
+          <FilterChip
+            href={filterMenuHref(query, { category: "" })}
+            selected={!query.category}
+            icon={UtensilsCrossed}
+          >
+            All items
+          </FilterChip>
+          {MENU_CATEGORIES.map((category) => {
+            const Icon = CATEGORY_ICONS[category] ?? UtensilsCrossed;
+
+            return (
+              <FilterChip
+                key={category}
+                href={filterMenuHref(query, { category })}
+                selected={query.category === category}
+                icon={Icon}
+              >
+                {category}
+              </FilterChip>
+            );
+          })}
         </div>
+      </div>
 
+      <div className="mt-8 grid gap-5 border-t border-line pt-6 sm:grid-cols-2">
         <div>
           <label htmlFor="menu-location" className={labelClass}>
             Location
           </label>
-          <input
-            id="menu-location"
-            name="location"
-            type="text"
-            defaultValue={query.location}
-            maxLength={120}
-            placeholder="Kitchen or area"
-            aria-describedby="menu-location-help"
-            className={controlClass}
-          />
-          <p id="menu-location-help" className="mt-1.5 text-xs text-ink-muted">
-            Matches the location recorded on the menu item.
+          <div className="relative">
+            <MapPin
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
+            />
+            <select
+              id="menu-location"
+              name="location"
+              defaultValue={query.location}
+              disabled={locations.length === 0 && !query.location}
+              className={`${controlClass} pr-9 pl-9 disabled:text-ink-muted`}
+            >
+              <option value="">All locations</option>
+              {locations.map((location) => (
+                <option key={location} value={location}>
+                  {location}
+                </option>
+              ))}
+              {query.location &&
+              !locations.some(
+                (location) => location.toLowerCase() === query.location.toLowerCase(),
+              ) ? (
+                <option value={query.location}>{query.location}</option>
+              ) : null}
+            </select>
+            <ChevronDown
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-ink-muted"
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-ink-muted">
+            Choose the kitchen area recorded on menu items.
           </p>
         </div>
 
@@ -177,43 +270,103 @@ function MenuFilters({ query }) {
           <label htmlFor="menu-sort" className={labelClass}>
             Sort by
           </label>
-          <select
-            id="menu-sort"
-            name="sort"
-            defaultValue={query.sort}
-            aria-describedby="menu-sort-help"
-            className={controlClass}
-          >
-            {MENU_SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {preserveLimit ? (
-            <input type="hidden" name="limit" value={query.limit} />
-          ) : null}
-          <p id="menu-sort-help" className="mt-1.5 text-xs text-ink-muted">
-            Changing a filter returns to page 1.
+          <div className="relative">
+            <SlidersHorizontal
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
+            />
+            <select
+              id="menu-sort"
+              name="sort"
+              defaultValue={query.sort}
+              className={`${controlClass} pr-9 pl-9`}
+            >
+              {MENU_SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-ink-muted"
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-ink-muted">
+            Choose how your menu is ordered.
           </p>
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-4">
+      {query.category ? (
+        <input type="hidden" name="category" value={query.category} />
+      ) : null}
+      {query.limit !== DEFAULT_MENU_QUERY.limit ? (
+        <input type="hidden" name="limit" value={query.limit} />
+      ) : null}
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+        <p className="text-xs text-ink-muted">
+          Changing a filter starts again at page 1.
+        </p>
         <button
           type="submit"
-          className="rounded-sm bg-tomato px-5 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-tomato-deep"
+          className="rounded-sm bg-tomato px-5 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-tomato-deep hover:text-paper"
         >
-          Apply filters
+          Update menu
         </button>
-        <Link
-          href="/menu"
-          className="text-sm font-medium text-ink-muted underline underline-offset-4 hover:text-charcoal"
-        >
-          Reset
-        </Link>
       </div>
     </form>
+  );
+}
+
+function FilterChip({ href, selected, icon: Icon, children }) {
+  const state = selected
+    ? "border-tomato bg-tomato text-paper hover:border-tomato-deep hover:bg-tomato-deep hover:text-paper"
+    : "border-line bg-paper text-charcoal hover:border-tomato hover:text-tomato";
+
+  return (
+    <Link
+      href={href}
+      aria-current={selected ? "true" : undefined}
+      className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${state}`}
+    >
+      <Icon aria-hidden="true" className="size-4" />
+      <span>{children}</span>
+    </Link>
+  );
+}
+
+function ActiveFilters({ query }) {
+  const filters = activeMenuFilters(query);
+
+  if (filters.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-6 flex flex-wrap items-center gap-2">
+      <span className={labelClass}>Active</span>
+      {filters.map((filter) => (
+        <Link
+          key={filter.key}
+          href={filter.href}
+          aria-label={`Remove ${filter.label}`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-medium text-charcoal hover:border-tomato hover:text-tomato"
+        >
+          <span aria-hidden="true" className="max-w-52 truncate">
+            {filter.label}
+          </span>
+          <X aria-hidden="true" className="size-3.5" />
+        </Link>
+      ))}
+      <Link
+        href="/menu"
+        className="px-1 text-xs font-semibold text-tomato underline underline-offset-4 hover:text-tomato-deep"
+      >
+        Clear all
+      </Link>
+    </div>
   );
 }
 
@@ -299,7 +452,7 @@ function paginationItems(current, total) {
 
 function PaginationLink({ href, current = false, children }) {
   const state = current
-    ? "border-tomato bg-tomato text-paper"
+    ? "border-tomato bg-tomato text-paper hover:bg-tomato-deep hover:text-paper"
     : "border-line bg-surface text-charcoal hover:border-tomato hover:text-tomato";
 
   return (
@@ -324,13 +477,16 @@ function PaginationPlaceholder({ children }) {
   );
 }
 
-function MenuNotice({ title, children }) {
+function MenuNotice({ title, children, tone = "info" }) {
   return (
-    <div className="mt-12 rounded-sm border border-line bg-surface p-8">
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      className="mt-12 rounded-sm border border-line bg-surface p-8"
+    >
       <h2 className="font-heading text-xl font-medium text-charcoal">{title}</h2>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-ink-muted">
+      <div className="mt-2 max-w-lg text-sm leading-relaxed text-ink-muted">
         {children}
-      </p>
+      </div>
     </div>
   );
 }
@@ -355,21 +511,26 @@ function SkeletonCard() {
 
 function MenuBrowserFallback() {
   return (
-    <div aria-hidden="true">
-      <div className="mt-10 rounded-sm border border-line bg-surface p-5 sm:p-6">
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div key={index} className="space-y-2">
-              <div className="h-3 w-20 bg-muted" />
-              <div className="h-10 w-full bg-muted" />
-            </div>
+    <div role="status" className="mt-10">
+      <span className="sr-only">Loading menu...</span>
+      <div aria-hidden="true">
+        <div className="rounded-sm border border-line bg-surface p-5 sm:p-6">
+          <div className="h-14 rounded-sm bg-muted" />
+          <div className="mt-8 flex flex-wrap gap-2">
+            {MENU_CATEGORIES.map((category) => (
+              <div key={category} className="h-9 w-28 rounded-full bg-muted" />
+            ))}
+          </div>
+          <div className="mt-8 grid gap-5 border-t border-line pt-6 sm:grid-cols-2">
+            <div className="h-11 rounded-sm bg-muted" />
+            <div className="h-11 rounded-sm bg-muted" />
+          </div>
+        </div>
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+          {Array.from({ length: 6 }, (_, index) => (
+            <SkeletonCard key={index} />
           ))}
         </div>
-      </div>
-      <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
-        {Array.from({ length: 6 }, (_, index) => (
-          <SkeletonCard key={index} />
-        ))}
       </div>
     </div>
   );

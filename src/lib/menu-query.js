@@ -104,6 +104,28 @@ export function normalizeMenuQuery(value) {
   return { search, category, location, sort, page, limit };
 }
 
+/**
+ * MongoDB location matching is exact and case-sensitive. When the API has told
+ * us the real stored value, use it so a URL such as `location=downtown` still
+ * selects the actual `Downtown` kitchen instead of silently returning nothing.
+ */
+export function canonicalizeMenuLocation(value, knownLocations = []) {
+  const location = cleanText(value, MAX_LOCATION_LENGTH);
+
+  if (!location) {
+    return "";
+  }
+
+  const known = knownLocations.find(
+    (option) =>
+      typeof option === "string" &&
+      option.trim().toLowerCase() === location.toLowerCase(),
+  );
+
+  return known ? known.trim() : location;
+}
+
+/** Filter selections only; pagination is not a filter the customer chose. */
 export function hasActiveMenuFilters(query) {
   const normalized = normalizeMenuQuery(query);
 
@@ -111,10 +133,51 @@ export function hasActiveMenuFilters(query) {
     Boolean(normalized.search) ||
     Boolean(normalized.category) ||
     Boolean(normalized.location) ||
-    normalized.sort !== DEFAULT_SORT ||
-    normalized.limit !== DEFAULT_LIMIT ||
-    normalized.page !== DEFAULT_PAGE
+    normalized.sort !== DEFAULT_SORT
   );
+}
+
+export function activeMenuFilters(query) {
+  const normalized = normalizeMenuQuery(query);
+  const filters = [];
+
+  if (normalized.search) {
+    filters.push({
+      key: "search",
+      label: `Search: ${normalized.search}`,
+      href: filterMenuHref(normalized, { search: "" }),
+    });
+  }
+
+  if (normalized.category) {
+    filters.push({
+      key: "category",
+      label: `Category: ${normalized.category}`,
+      href: filterMenuHref(normalized, { category: "" }),
+    });
+  }
+
+  if (normalized.location) {
+    filters.push({
+      key: "location",
+      label: `Location: ${normalized.location}`,
+      href: filterMenuHref(normalized, { location: "" }),
+    });
+  }
+
+  if (normalized.sort !== DEFAULT_SORT) {
+    const sort = MENU_SORT_OPTIONS.find(
+      (option) => option.value === normalized.sort,
+    );
+
+    filters.push({
+      key: "sort",
+      label: `Sort: ${sort?.label ?? normalized.sort}`,
+      href: filterMenuHref(normalized, { sort: DEFAULT_SORT }),
+    });
+  }
+
+  return filters;
 }
 
 /** Build canonical `/menu` URLs that preserve every active query value. */
@@ -150,4 +213,9 @@ export function menuHref(query, overrides = {}) {
   const search = params.toString();
 
   return search ? `/menu?${search}` : "/menu";
+}
+
+/** Changing any filter starts a fresh result set on page 1. */
+export function filterMenuHref(query, overrides = {}) {
+  return menuHref(query, { ...overrides, page: DEFAULT_PAGE });
 }
