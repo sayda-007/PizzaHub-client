@@ -69,7 +69,12 @@ export default function FeaturedMenu({ items = [], status = "ok" }) {
               const layout = layouts[index % layouts.length];
 
               return (
-                <article key={item.id} className={layout.article}>
+                <article key={item.id} className={`relative ${layout.article}`}>
+                  <Link
+                    href={`/menu/${item.id}`}
+                    aria-label={`View details for ${item.itemName}`}
+                    className="absolute inset-0 z-10 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tomato/30"
+                  />
                   <figure>
                     <div
                       className={`relative overflow-hidden rounded-sm border border-line bg-muted ${layout.frame}`}
