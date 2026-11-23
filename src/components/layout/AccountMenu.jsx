@@ -35,6 +35,7 @@ export function AccountIdentity({ session }) {
 export default function AccountMenu({ session, onLogout, loggingOut, logoutError }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
+  const triggerRef = useRef(null);
   const user = session?.user;
   const displayName = user?.name?.trim() || "PizzaHub account";
 
@@ -52,15 +53,26 @@ export default function AccountMenu({ session, onLogout, loggingOut, logoutError
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         setOpen(false);
+        triggerRef.current?.focus();
       }
     }
 
+    function handleFocusOut(event) {
+      if (!containerRef.current?.contains(event.relatedTarget)) {
+        setOpen(false);
+      }
+    }
+
+    const container = containerRef.current;
+
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
+    container?.addEventListener("focusout", handleFocusOut);
 
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
+      container?.removeEventListener("focusout", handleFocusOut);
     };
   }, [open]);
 
@@ -73,9 +85,9 @@ export default function AccountMenu({ session, onLogout, loggingOut, logoutError
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
-        aria-haspopup="menu"
         aria-expanded={open}
         aria-controls="desktop-account-menu"
         aria-label={`Account menu for ${displayName}`}
@@ -97,8 +109,6 @@ export default function AccountMenu({ session, onLogout, loggingOut, logoutError
       {open ? (
         <div
           id="desktop-account-menu"
-          role="menu"
-          aria-label="Account"
           className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-sm border border-line bg-surface shadow-[0_18px_45px_rgba(41,37,31,0.14)]"
         >
           <div className="border-b border-line px-4 py-3">
@@ -113,7 +123,6 @@ export default function AccountMenu({ session, onLogout, loggingOut, logoutError
 
           <button
             type="button"
-            role="menuitem"
             onClick={handleLogoutClick}
             disabled={loggingOut}
             className="flex w-full items-center gap-2.5 border-t border-line px-4 py-3 text-left text-sm font-medium text-charcoal transition-colors hover:bg-muted hover:text-tomato disabled:opacity-60"
