@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LoaderCircle, LogOut, Menu, UserRound, X } from "lucide-react";
 
 import AccountMenu, { AccountIdentity } from "@/components/layout/AccountMenu";
@@ -13,6 +13,7 @@ import {
   getDashboardHref,
   getSessionAccountRole,
 } from "@/lib/auth-client";
+import { authHref } from "@/lib/safe-return";
 
 const navigation = [
   { label: "Home", href: "/" },
@@ -110,7 +111,9 @@ export default function Navbar() {
               logoutError={logoutError}
             />
           ) : (
-            <SignedOutActions />
+            <Suspense fallback={<SignedOutActions />}>
+              <ReturnAwareSignedOutActions />
+            </Suspense>
           )}
         </div>
 
@@ -163,7 +166,11 @@ export default function Navbar() {
             />
           ) : (
             <li className="py-4">
-              <SignedOutActions mobile onNavigate={() => setOpen(false)} />
+              <Suspense
+                fallback={<SignedOutActions mobile onNavigate={() => setOpen(false)} />}
+              >
+                <ReturnAwareSignedOutActions mobile onNavigate={() => setOpen(false)} />
+              </Suspense>
             </li>
           )}
         </ul>
@@ -172,7 +179,19 @@ export default function Navbar() {
   );
 }
 
-function SignedOutActions({ mobile = false, onNavigate }) {
+function ReturnAwareSignedOutActions({ mobile = false, onNavigate }) {
+  const pathname = usePathname();
+  const returnTo = pathname && !pathname.startsWith("/sign-") ? pathname : "";
+
+  return (
+    <SignedOutActions mobile={mobile} onNavigate={onNavigate} returnTo={returnTo} />
+  );
+}
+
+function SignedOutActions({ mobile = false, onNavigate, returnTo = "" }) {
+  const signInHref = authHref("/sign-in", { returnTo });
+  const signUpHref = authHref("/sign-up", { returnTo });
+
   if (mobile) {
     return (
       <div className="grid gap-3">
@@ -181,7 +200,7 @@ function SignedOutActions({ mobile = false, onNavigate }) {
           variant="outline"
           className="h-11 w-full border-line bg-paper text-charcoal hover:bg-muted hover:text-charcoal"
         >
-          <Link href="/sign-in" onClick={onNavigate}>
+          <Link href={signInHref} onClick={onNavigate}>
             Sign In
           </Link>
         </Button>
@@ -189,7 +208,7 @@ function SignedOutActions({ mobile = false, onNavigate }) {
           asChild
           className="h-11 w-full bg-tomato text-paper hover:bg-tomato-deep hover:text-paper"
         >
-          <Link href="/sign-up" onClick={onNavigate}>
+          <Link href={signUpHref} onClick={onNavigate}>
             Sign Up
           </Link>
         </Button>
@@ -200,13 +219,13 @@ function SignedOutActions({ mobile = false, onNavigate }) {
   return (
     <div className="flex items-center gap-2">
       <Button asChild variant="ghost" className="text-charcoal hover:text-tomato">
-        <Link href="/sign-in">Sign In</Link>
+        <Link href={signInHref}>Sign In</Link>
       </Button>
       <Button
         asChild
         className="bg-tomato px-4 text-paper hover:bg-tomato-deep hover:text-paper"
       >
-        <Link href="/sign-up">Sign Up</Link>
+        <Link href={signUpHref}>Sign Up</Link>
       </Button>
     </div>
   );
