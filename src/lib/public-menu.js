@@ -1,16 +1,10 @@
 import { cacheLife } from "next/cache";
 
+import { DEFAULT_MENU_QUERY, normalizeMenuQuery } from "@/lib/menu-query";
+
 const FALLBACK_BACKEND_URL = "https://pizzahub-server-xi.vercel.app";
 const PUBLIC_MENU_PATH = "/api/menu";
-const MENU_REQUEST_LIMIT = 12;
 const REQUEST_TIMEOUT_MS = 8000;
-
-const EMPTY_PAGINATION = Object.freeze({
-  page: 1,
-  limit: MENU_REQUEST_LIMIT,
-  totalItems: 0,
-  totalPages: 0,
-});
 
 const UNAVAILABLE_MESSAGE =
   "We couldn't load the menu right now. Please try again shortly.";
@@ -24,9 +18,29 @@ function backendOrigin() {
   return (configured || FALLBACK_BACKEND_URL).replace(/\/+$/, "");
 }
 
-function menuEndpoint() {
+function menuEndpoint(options) {
   const url = new URL(`${backendOrigin()}${PUBLIC_MENU_PATH}`);
-  url.searchParams.set("limit", String(MENU_REQUEST_LIMIT));
+  const params = new URLSearchParams();
+
+  // The backend rejects empty text values and unknown keys. Only forward the
+  // six documented public parameters, and omit optional text when it is empty.
+  if (options.search) {
+    params.set("search", options.search);
+  }
+
+  if (options.category) {
+    params.set("category", options.category);
+  }
+
+  if (options.location) {
+    params.set("location", options.location);
+  }
+
+  params.set("sort", options.sort);
+  params.set("page", String(options.page));
+  params.set("limit", String(options.limit));
+  url.search = params.toString();
+
   return url.toString();
 }
 
@@ -102,44 +116,57 @@ function normalizePagination(raw) {
   return { page, limit, totalItems, totalPages };
 }
 
-function unavailable() {
+function unavailable(options) {
   return {
     status: "error",
     items: [],
-    pagination: EMPTY_PAGINATION,
+    pagination: {
+      page: options.page,
+      limit: options.limit,
+      totalItems: 0,
+      totalPages: 0,
+    },
     message: UNAVAILABLE_MESSAGE,
   };
 }
 
 /**
- * Server-only public menu fetch. Both the homepage preview and the full menu
- * route call this with the same arguments, so the cached result is shared.
+ * Server-only public menu fetch. The homepage calls this with no arguments,
+ * while `/menu` passes its normalized query. Normalizing outside the cached
+ * scope means both callers share one entry for the default view, and every
+ * other search/filter/sort/page/limit combination gets its own cache entry.
  */
-export async function getPublicMenu() {
+export async function getPublicMenu(query = DEFAULT_MENU_QUERY) {
+  const options = normalizeMenuQuery(query);
+
+  return getCachedPublicMenu(options);
+}
+
+async function getCachedPublicMenu(options) {
   "use cache";
 
   cacheLife("minutes");
 
   try {
-    const response = await fetch(menuEndpoint(), {
+    const response = await fetch(menuEndpoint(options), {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
-      return unavailable();
+      return unavailable(options);
     }
 
     const payload = await response.json();
 
     if (!isRecord(payload) || !Array.isArray(payload.items)) {
-      return unavailable();
+      return unavailable(options);
     }
 
     const pagination = normalizePagination(payload.pagination);
 
     if (!pagination) {
-      return unavailable();
+      return unavailable(options);
     }
 
     const items = [];
@@ -148,7 +175,7 @@ export async function getPublicMenu() {
       const item = normalizeItem(raw);
 
       if (!item) {
-        return unavailable();
+        return unavailable(options);
       }
 
       items.push(item);
@@ -156,6 +183,6 @@ export async function getPublicMenu() {
 
     return { status: "ok", items, pagination, message: null };
   } catch {
-    return unavailable();
+    return unavailable(options);
   }
 }
