@@ -1,5 +1,6 @@
-import Image from "next/image";
-import { featuredMenuPreview } from "@/config/featuredMenuPreview";
+import Link from "next/link";
+
+import MenuImage from "@/components/menu/MenuImage";
 
 const layouts = [
   {
@@ -23,7 +24,9 @@ const sizes = [
   "(max-width: 767px) 100vw, (max-width: 1023px) 100vw, 45vw",
 ];
 
-export default function FeaturedMenu({ items = featuredMenuPreview }) {
+export default function FeaturedMenu({ items = [], status = "ok" }) {
+  const previewItems = items.slice(0, 3);
+
   return (
     <section
       id="menu"
@@ -33,55 +36,71 @@ export default function FeaturedMenu({ items = featuredMenuPreview }) {
       <div className="mx-auto w-full max-w-7xl px-5 py-16 sm:px-8 lg:py-28">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="eyebrow">Featured menu</p>
+            <p className="eyebrow">From the menu</p>
             <h2 id="menu-heading" className="section-heading mt-4 max-w-lg">
               A few good places to begin.
             </h2>
           </div>
-          <p className="max-w-sm text-sm leading-relaxed text-ink-muted">
-            A small preview of the pizzas you&apos;ll be able to explore here —
-            simple classics and bolder favorites.
-          </p>
+          <div className="flex max-w-sm flex-col items-start gap-4">
+            <p className="text-sm leading-relaxed text-ink-muted">
+              A small preview of the pizzas available right now — simple
+              classics and bolder favorites.
+            </p>
+            <Link
+              href="/menu"
+              className="text-sm font-medium text-tomato hover:text-tomato-deep"
+            >
+              Browse the full menu <span aria-hidden="true">&rarr;</span>
+            </Link>
+          </div>
         </div>
 
-        <div className="mt-14 grid gap-12 md:grid-cols-12 md:gap-x-8 md:gap-y-16">
-          {items.map((item, index) => {
-            const layout = layouts[index % layouts.length];
+        {status === "error" ? (
+          <p className="mt-14 rounded-sm border border-line bg-paper p-6 text-sm text-ink-muted">
+            The menu is temporarily unavailable. Please check back shortly.
+          </p>
+        ) : previewItems.length === 0 ? (
+          <p className="mt-14 rounded-sm border border-line bg-paper p-6 text-sm text-ink-muted">
+            No menu items are available yet.
+          </p>
+        ) : (
+          <div className="mt-14 grid gap-12 md:grid-cols-12 md:gap-x-8 md:gap-y-16">
+            {previewItems.map((item, index) => {
+              const layout = layouts[index % layouts.length];
 
-            return (
-              <article key={item.id} className={layout.article}>
-                <figure>
-                  <div
-                    className={`relative overflow-hidden rounded-sm border border-line bg-muted ${layout.frame}`}
-                  >
-                    <Image
-                      src={item.image}
-                      alt={item.imageAlt}
-                      fill
-                      sizes={sizes[index % sizes.length]}
-                      className="object-cover object-center"
+              return (
+                <article key={item.id} className={layout.article}>
+                  <figure>
+                    <div
+                      className={`relative overflow-hidden rounded-sm border border-line bg-muted ${layout.frame}`}
+                    >
+                      <MenuImage
+                        src={item.images[0]}
+                        alt={item.imageAlt}
+                        sizes={sizes[index % sizes.length]}
+                      />
+                    </div>
+                  </figure>
+                  <div className={index === 2 ? "mt-6 md:mt-0" : "mt-5"}>
+                    <p className="text-xs font-semibold tracking-[0.18em] text-olive uppercase">
+                      {item.category}
+                    </p>
+                    <h3 className="mt-2 font-heading text-2xl font-medium text-charcoal">
+                      {item.itemName}
+                    </h3>
+                    <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-muted">
+                      {item.description}
+                    </p>
+                    <div
+                      aria-hidden="true"
+                      className="mt-5 h-px w-12 bg-line"
                     />
                   </div>
-                </figure>
-                <div className={index === 2 ? "mt-6 md:mt-0" : "mt-5"}>
-                  <p className="text-xs font-semibold tracking-[0.18em] text-olive uppercase">
-                    {item.category}
-                  </p>
-                  <h3 className="mt-2 font-heading text-2xl font-medium text-charcoal">
-                    {item.name}
-                  </h3>
-                  <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-muted">
-                    {item.description}
-                  </p>
-                  <div
-                    aria-hidden="true"
-                    className="mt-5 h-px w-12 bg-line"
-                  />
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );

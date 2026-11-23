@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 const navigation = [
   { label: "Home", href: "/" },
-  { label: "Menu", href: "/#menu" },
+  { label: "Menu", href: "/menu" },
   { label: "Our Story", href: "/#our-story" },
   { label: "How It Works", href: "/#how-it-works" },
 ];
@@ -55,7 +55,7 @@ export default function Navbar() {
 
         <div className="hidden md:block">
           <Button asChild className="px-4">
-            <Link href="/#menu">Order Now</Link>
+            <Link href="/menu">Order Now</Link>
           </Button>
         </div>
 
@@ -95,7 +95,7 @@ export default function Navbar() {
           ))}
           <li className="py-4">
             <Button asChild className="w-full">
-              <Link href="/#menu" onClick={() => setOpen(false)}>
+              <Link href="/menu" onClick={() => setOpen(false)}>
                 Order Now
               </Link>
             </Button>

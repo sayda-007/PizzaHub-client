@@ -15,6 +15,10 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Environment
+
+`PIZZAHUB_BACKEND_URL` is optional and server-only. It sets the origin used by the public menu fetch and defaults to `https://pizzahub-server-xi.vercel.app`. Do not prefix it with `NEXT_PUBLIC_`; browser code never reads it.
+
 ## Scripts
 
 | Script          | Description                              |
