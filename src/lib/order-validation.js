@@ -28,8 +28,18 @@ function cleanText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** Local-calendar date string suitable for an <input type="date"> min value. */
+export function todayInputValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 export function validateOrderForm({ itemId, deliveryDate, deliveryAddress, additionalMessage }) {
   const errors = {};
+  const date = cleanText(deliveryDate);
   const address = cleanText(deliveryAddress);
   const message = cleanText(additionalMessage);
 
@@ -37,8 +47,10 @@ export function validateOrderForm({ itemId, deliveryDate, deliveryAddress, addit
     errors.itemId = "This menu item is no longer available.";
   }
 
-  if (!isCalendarDate(cleanText(deliveryDate))) {
+  if (!isCalendarDate(date)) {
     errors.deliveryDate = "Choose a real delivery date in YYYY-MM-DD format.";
+  } else if (date < todayInputValue()) {
+    errors.deliveryDate = "Choose today or a later delivery date.";
   }
 
   if (!address) {
@@ -57,7 +69,7 @@ export function validateOrderForm({ itemId, deliveryDate, deliveryAddress, addit
 
   const payload = {
     itemId: cleanText(itemId).toLowerCase(),
-    deliveryDate: cleanText(deliveryDate),
+    deliveryDate: date,
     deliveryAddress: address,
   };
 
