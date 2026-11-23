@@ -3,13 +3,13 @@ import BrandLogo from "@/components/layout/BrandLogo";
 
 const explore = [
   { label: "Home", href: "/" },
-  { label: "Menu", href: "/#menu" },
+  { label: "Menu", href: "/menu" },
   { label: "Our Story", href: "/#our-story" },
   { label: "How It Works", href: "/#how-it-works" },
 ];
 
 const ordering = [
-  { label: "Browse menus", href: "/#menu" },
+  { label: "Browse menus", href: "/menu" },
   { label: "How ordering works", href: "/#how-it-works" },
 ];
 
