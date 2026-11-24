@@ -34,10 +34,18 @@ export default async function Footer() {
       <div className="mx-auto w-full max-w-7xl px-5 py-14 sm:px-8 sm:py-16">
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:gap-10">
           <div className="max-w-sm">
-            <BrandLogo
-              wordmarkClassName="text-2xl text-paper"
-              emblemClassName="size-9"
-            />
+            {/* Native anchor is intentional: the logo must trigger a full-page reload. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a
+              href="/"
+              aria-label="PizzaHub home"
+              className="inline-flex rounded-sm"
+            >
+              <BrandLogo
+                wordmarkClassName="text-2xl text-paper"
+                emblemClassName="size-9"
+              />
+            </a>
             <p className="mt-5 text-sm leading-relaxed text-paper/70">
               A home for neighborhood pizzerias, their menus, and the people who
               love a good slice.
