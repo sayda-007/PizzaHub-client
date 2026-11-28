@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 
+import { revalidatePublicMenu } from "@/app/actions";
 import FormMessage from "@/components/auth/FormMessage";
 import { Button } from "@/components/ui/button";
 import { friendlyApiError } from "@/lib/api-client";
@@ -106,6 +107,7 @@ export default function VendorMenuForm({ item, onDone, onCancel }) {
     try {
       if (isEdit) {
         await updateVendorMenu(item.id, payload);
+        await revalidatePublicMenu();
         onDone("Menu item updated.");
         return;
       }
@@ -121,6 +123,7 @@ export default function VendorMenuForm({ item, onDone, onCancel }) {
       }
 
       await createVendorMenu(formData);
+      await revalidatePublicMenu();
       onDone("Menu item submitted for review.");
     } catch (error) {
       setFormError(

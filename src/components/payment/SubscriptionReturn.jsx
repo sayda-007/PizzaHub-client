@@ -12,11 +12,12 @@ import {
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { ACCOUNT_ROLES } from "@/lib/auth-client";
+import { ACCOUNT_ROLES, useAuthorizedSession } from "@/lib/auth-client";
 import { getSubscription } from "@/lib/dashboard-client";
 import { formatDateTime } from "@/lib/format";
 
 export default function SubscriptionReturn({ variant }) {
+  const { canLoad } = useAuthorizedSession([ACCOUNT_ROLES.VENDOR]);
   const isSuccess = variant === "success";
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id") ?? "";
@@ -39,10 +40,14 @@ export default function SubscriptionReturn({ variant }) {
   }, []);
 
   useEffect(() => {
+    if (!canLoad) {
+      return undefined;
+    }
+
     // Async data load: state updates happen after the request, not during render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
-  }, [load]);
+  }, [canLoad, load]);
 
   return (
     <DashboardShell

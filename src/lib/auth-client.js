@@ -1,23 +1,36 @@
 import { createAuthClient } from "better-auth/react";
 import { jwtClient } from "better-auth/client/plugins";
 
+import {
+  ACCOUNT_ROLES,
+  authClientBaseURL,
+  getSessionAccountRole,
+  normalizeAccountRole,
+  resolveRoleFromSessionResult,
+} from "@/lib/auth-role";
 import { safeReturnPath } from "@/lib/safe-return";
+
+export {
+  ACCOUNT_ROLES,
+  getAuthResultRole,
+  getSessionAccountRole,
+  normalizeAccountRole,
+  resolveAuthenticatedRole,
+} from "@/lib/auth-role";
 
 /**
  * Better Auth is mounted by the backend at `/api/auth/*`. The same-origin
  * rewrite in next.config.mjs forwards that path to the backend, so the client
- * needs no public backend URL and no credential here. The JWT plugin client
- * exposes `authClient.token()`, which the order API needs.
+ * needs no public backend URL and no credential here. Pinning the browser base
+ * URL to the live origin prevents a stray public auth env value from bypassing
+ * that rewrite. The JWT plugin exposes `authClient.token()` for the order API.
  */
 export const authClient = createAuthClient({
+  baseURL: authClientBaseURL(
+    typeof window === "undefined" ? null : window.location,
+  ),
   plugins: [jwtClient()],
   fetchOptions: { credentials: "include" },
-});
-
-export const ACCOUNT_ROLES = Object.freeze({
-  CUSTOMER: "customer",
-  VENDOR: "vendor",
-  ADMIN: "admin",
 });
 
 export const ROLE_LABELS = Object.freeze({
@@ -33,26 +46,49 @@ const DASHBOARD_ROUTES = Object.freeze({
   [ACCOUNT_ROLES.ADMIN]: "/admin",
 });
 
-export function normalizeAccountRole(value) {
-  return Object.values(ACCOUNT_ROLES).includes(value) ? value : null;
-}
-
-/** Roles are accepted only from Better Auth's server response. */
-export function getSessionAccountRole(session) {
-  return normalizeAccountRole(session?.user?.role);
-}
-
 /** Ordering UI is limited to the customer role; the backend still enforces it. */
 export function canPlaceCustomerOrder(session) {
   return getSessionAccountRole(session) === ACCOUNT_ROLES.CUSTOMER;
 }
 
-export function getAuthResultRole(result) {
-  return normalizeAccountRole(result?.data?.user?.role);
+/**
+ * Normalize Better Auth's session hook. Components must distinguish a real
+ * signed-out state from a failed session request instead of treating both as
+ * "not signed in".
+ */
+export function useAuthSession() {
+  const { data, error, isPending, isRefetching, refetch } = authClient.useSession();
+
+  return {
+    session: data ?? null,
+    sessionError: error ?? null,
+    isPending,
+    isRefetching,
+    refetch,
+  };
 }
 
-export function resolveAuthenticatedRole(session, result) {
-  return getSessionAccountRole(session) ?? getAuthResultRole(result);
+export function sessionErrorMessage(error) {
+  if (Number(error?.status) === 429) {
+    return "Too many requests. Please wait a moment and try again.";
+  }
+
+  return "We couldn't check your session. Please refresh and try again.";
+}
+
+/**
+ * Gate for protected data effects. A component may only call a protected API
+ * after the session request has finished and its DB-backed role is allowed.
+ * Passing no roles means any signed-in account is enough.
+ */
+export function useAuthorizedSession(allowedRoles) {
+  const { session, sessionError, isPending, isRefetching, refetch } = useAuthSession();
+  const role = getSessionAccountRole(session);
+  const roles = Array.isArray(allowedRoles) && allowedRoles.length > 0 ? allowedRoles : null;
+  const hasRole = roles ? roles.includes(role) : Boolean(role);
+  const canLoad = !isPending && !sessionError && Boolean(session?.user) && hasRole;
+
+  return { session, role, sessionError, isPending, isRefetching, refetch, canLoad };
 }
 
 /** Returns the dashboard route for a known role, or null for unknown roles. */
@@ -70,12 +106,8 @@ export function getPostAuthHref(role) {
  * sign-in/sign-up response is kept only as a fallback for that first moment.
  */
 export async function resolveServerRole(result) {
-  try {
-    const sessionResult = await authClient.getSession();
-    return resolveAuthenticatedRole(sessionResult?.data ?? null, result);
-  } catch {
-    return getAuthResultRole(result);
-  }
+  const sessionResult = await authClient.getSession();
+  return resolveRoleFromSessionResult(sessionResult, result);
 }
 
 export function validateName(value) {
@@ -181,7 +213,7 @@ export function friendlyAuthError(error, fallback) {
 }
 
 export function signInWithGoogle({
-  callbackURL = "/menu",
+  callbackURL = "/dashboard",
   newUserCallbackURL = callbackURL,
   errorPath = "/sign-in",
   additionalData,

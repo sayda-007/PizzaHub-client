@@ -10,6 +10,7 @@ export default function OrderTimeline({ status }) {
       {steps.map((step, index) => {
         const state = timelineState(status, index);
         const isCancelled = state === "cancelled";
+        const isRejected = state === "rejected";
         const isComplete = state === "complete";
 
         return (
@@ -27,14 +28,14 @@ export default function OrderTimeline({ status }) {
               className={`relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full border ${
                 isComplete
                   ? "border-olive bg-olive text-paper"
-                  : isCancelled
+                  : isCancelled || isRejected
                     ? "border-destructive/40 bg-destructive/10 text-destructive"
                     : "border-line bg-muted text-ink-muted"
               }`}
             >
               {isComplete ? (
                 <Check className="size-3.5" />
-              ) : isCancelled ? (
+              ) : isCancelled || isRejected ? (
                 <X className="size-3.5" />
               ) : (
                 <Circle className="size-2 fill-current" />
@@ -43,7 +44,9 @@ export default function OrderTimeline({ status }) {
             <div>
               <p
                 className={`text-sm font-medium ${
-                  isComplete || isCancelled ? "text-charcoal" : "text-ink-muted"
+                  isComplete || isCancelled || isRejected
+                    ? "text-charcoal"
+                    : "text-ink-muted"
                 }`}
               >
                 {step.label}
@@ -55,9 +58,11 @@ export default function OrderTimeline({ status }) {
                     : index === 1
                       ? "Waiting for the kitchen."
                       : "The kitchen has responded."
-                  : isCancelled
-                    ? "This step did not happen."
-                    : "Not reached yet."}
+                  : isRejected
+                    ? "The kitchen could not accept this order."
+                    : isCancelled
+                      ? "This step did not happen."
+                      : "Not reached yet."}
               </p>
             </div>
           </li>

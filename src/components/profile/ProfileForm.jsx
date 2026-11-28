@@ -15,6 +15,7 @@ import {
   ROLE_LABELS,
   authClient,
   isValidImageUrl,
+  useAuthorizedSession,
   validateName,
 } from "@/lib/auth-client";
 import { getProfile, updateProfile } from "@/lib/dashboard-client";
@@ -52,6 +53,7 @@ function validateProfile(values, isVendor) {
 }
 
 export default function ProfileForm() {
+  const { canLoad } = useAuthorizedSession();
   const [profile, setProfile] = useState(null);
   const [values, setValues] = useState({ name: "", image: "", businessName: "" });
   const [fieldErrors, setFieldErrors] = useState({});
@@ -82,10 +84,14 @@ export default function ProfileForm() {
   }, []);
 
   useEffect(() => {
+    if (!canLoad) {
+      return undefined;
+    }
+
     // Async data load: state updates happen after the request, not during render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
-  }, [load]);
+  }, [canLoad, load]);
 
   const isVendor = profile?.role === ACCOUNT_ROLES.VENDOR;
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { revalidatePublicMenu } from "@/app/actions";
 import FormMessage from "@/components/auth/FormMessage";
 import { DashboardError, DashboardLoading } from "@/components/dashboard/DashboardStates";
 import DashboardShell from "@/components/dashboard/DashboardShell";
@@ -104,6 +105,7 @@ export default function VendorMenuPage() {
 
     try {
       await toggleVendorMenuAvailability(id);
+      await revalidatePublicMenu();
       setSuccess("Availability updated.");
       refresh();
     } catch (toggleError) {
@@ -125,11 +127,12 @@ export default function VendorMenuPage() {
 
     try {
       await deleteVendorMenu(id);
+      await revalidatePublicMenu();
       setDeletingId("");
       setSuccess("Menu item deleted.");
 
       if (items.length === 1 && page > 1) {
-        setPage(1);
+        setPage(page - 1);
       } else {
         refresh();
       }

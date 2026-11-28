@@ -10,7 +10,7 @@ import {
   DashboardLoading,
 } from "@/components/dashboard/DashboardStates";
 import { friendlyApiError } from "@/lib/api-client";
-import { ACCOUNT_ROLES } from "@/lib/auth-client";
+import { ACCOUNT_ROLES, useAuthorizedSession } from "@/lib/auth-client";
 import { getAdminStats } from "@/lib/dashboard-client";
 
 const STAT_CARDS = Object.freeze([
@@ -49,12 +49,17 @@ function formatCount(value) {
 }
 
 function AdminOverviewContent() {
+  const { canLoad } = useAuthorizedSession([ACCOUNT_ROLES.ADMIN]);
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!canLoad) {
+      return undefined;
+    }
+
     let active = true;
 
     // Async data load: state updates happen after the request, not during render.
@@ -95,7 +100,7 @@ function AdminOverviewContent() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [canLoad, reloadKey]);
 
   return (
     <div className="space-y-10">

@@ -16,7 +16,7 @@ import MenuImage from "@/components/menu/MenuImage";
 import { Button } from "@/components/ui/button";
 import { cancelCustomerOrder, listCustomerOrders } from "@/lib/dashboard-client";
 import { formatDate, formatPrice } from "@/lib/format";
-import { ACCOUNT_ROLES } from "@/lib/auth-client";
+import { ACCOUNT_ROLES, useAuthorizedSession } from "@/lib/auth-client";
 import { ORDER_STATUSES } from "@/lib/status";
 
 const PAGE_SIZE = 10;
@@ -113,6 +113,7 @@ function OrderCard({ order, onCancel, cancelling, confirming, onConfirm, onKeep 
 }
 
 export default function OrdersDashboard() {
+  const { canLoad } = useAuthorizedSession([ACCOUNT_ROLES.CUSTOMER]);
   const [orders, setOrders] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [page, setPage] = useState(1);
@@ -135,10 +136,14 @@ export default function OrdersDashboard() {
   }, [page]);
 
   useEffect(() => {
+    if (!canLoad) {
+      return undefined;
+    }
+
     // Async data load: state updates happen after the request, not during render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
-  }, [load]);
+  }, [canLoad, load]);
 
   function refresh() {
     setLoading(true);

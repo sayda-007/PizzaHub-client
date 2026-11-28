@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { revalidatePublicMenu } from "@/app/actions";
 import FormMessage from "@/components/auth/FormMessage";
 import AdminConfirmBar from "@/components/admin/AdminConfirmBar";
 import DashboardShell from "@/components/dashboard/DashboardShell";
@@ -15,7 +16,7 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import MenuImage from "@/components/menu/MenuImage";
 import { Button } from "@/components/ui/button";
 import { friendlyApiError } from "@/lib/api-client";
-import { ACCOUNT_ROLES } from "@/lib/auth-client";
+import { ACCOUNT_ROLES, useAuthorizedSession } from "@/lib/auth-client";
 import {
   deleteAdminMenu,
   listAdminMenu,
@@ -48,6 +49,7 @@ const controlClass =
   "mt-2 h-10 w-full rounded-sm border border-line bg-paper px-3 text-sm text-charcoal placeholder:text-ink-muted";
 
 function AdminMenuContent() {
+  const { canLoad } = useAuthorizedSession([ACCOUNT_ROLES.ADMIN]);
   const [draft, setDraft] = useState({ ...EMPTY_FILTERS });
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
   const [page, setPage] = useState(1);
@@ -62,6 +64,10 @@ function AdminMenuContent() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!canLoad) {
+      return undefined;
+    }
+
     let active = true;
 
     // Async data load: state updates happen after the request, not during render.
@@ -103,7 +109,7 @@ function AdminMenuContent() {
     return () => {
       active = false;
     };
-  }, [filters, page, reloadKey]);
+  }, [canLoad, filters, page, reloadKey]);
 
   function clearActionState() {
     setNotice("");
@@ -143,6 +149,7 @@ function AdminMenuContent() {
 
     try {
       await moderateAdminMenu(item.id, status);
+      await revalidatePublicMenu();
       setNotice(
         status === MENU_STATUSES.APPROVED
           ? "Menu item approved."
@@ -165,6 +172,7 @@ function AdminMenuContent() {
 
     try {
       await setAdminMenuAvailability(item.id, nextAvailable);
+      await revalidatePublicMenu();
       setNotice(
         nextAvailable
           ? "Menu item is now available to customers."
@@ -189,6 +197,7 @@ function AdminMenuContent() {
 
     try {
       await deleteAdminMenu(item.id);
+      await revalidatePublicMenu();
       setNotice("Menu item deleted.");
       setConfirm(null);
 

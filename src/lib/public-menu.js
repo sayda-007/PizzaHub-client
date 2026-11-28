@@ -1,6 +1,7 @@
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 
 import { DEFAULT_MENU_QUERY, normalizeMenuQuery } from "@/lib/menu-query";
+import { PUBLIC_MENU_CACHE_TAG } from "@/lib/public-menu-cache";
 
 const FALLBACK_BACKEND_URL = "https://pizzahub-server-xi.vercel.app";
 const PUBLIC_MENU_PATH = "/api/menu";
@@ -348,6 +349,7 @@ async function getCachedPublicMenu(options) {
   "use cache";
 
   cacheLife("minutes");
+  cacheTag(PUBLIC_MENU_CACHE_TAG);
 
   let response;
 

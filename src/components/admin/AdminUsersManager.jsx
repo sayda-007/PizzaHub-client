@@ -14,7 +14,7 @@ import Pagination from "@/components/dashboard/Pagination";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { friendlyApiError } from "@/lib/api-client";
-import { ACCOUNT_ROLES, ROLE_LABELS } from "@/lib/auth-client";
+import { ACCOUNT_ROLES, ROLE_LABELS, useAuthorizedSession } from "@/lib/auth-client";
 import { listAdminUsers, setAdminUserBlocked } from "@/lib/dashboard-client";
 import { formatDate, initials } from "@/lib/format";
 
@@ -35,6 +35,7 @@ const controlClass =
   "mt-2 h-10 w-full rounded-sm border border-line bg-paper px-3 text-sm text-charcoal placeholder:text-ink-muted";
 
 function AdminUsersContent() {
+  const { canLoad, session } = useAuthorizedSession([ACCOUNT_ROLES.ADMIN]);
   const [draft, setDraft] = useState({ ...EMPTY_FILTERS });
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
   const [page, setPage] = useState(1);
@@ -49,6 +50,10 @@ function AdminUsersContent() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!canLoad) {
+      return undefined;
+    }
+
     let active = true;
 
     // Async data load: state updates happen after the request, not during render.
@@ -90,7 +95,7 @@ function AdminUsersContent() {
     return () => {
       active = false;
     };
-  }, [filters, page, reloadKey]);
+  }, [canLoad, filters, page, reloadKey]);
 
   function clearActionState() {
     setNotice("");
@@ -258,6 +263,7 @@ function AdminUsersContent() {
                 <AdminUserCard
                   key={user.id}
                   user={user}
+                  isSelf={String(user.id) === String(session?.user?.id)}
                   busy={busy}
                   confirming={confirm?.id === user.id ? confirm : null}
                   onRequestBlock={requestBlock}
@@ -291,6 +297,7 @@ export default function AdminUsersManager() {
 
 function AdminUserCard({
   user,
+  isSelf,
   busy,
   confirming,
   onRequestBlock,
@@ -371,7 +378,7 @@ function AdminUserCard({
         <Button
           type="button"
           variant={shouldBlock ? "destructive" : "outline"}
-          disabled={isAdmin || allDisabled}
+          disabled={isAdmin || isSelf || allDisabled}
           onClick={() => onRequestBlock(user, shouldBlock)}
           className={
             shouldBlock
@@ -381,7 +388,9 @@ function AdminUserCard({
         >
           {actionLabel}
         </Button>
-        {isAdmin ? (
+        {isSelf ? (
+          <p className="text-xs text-ink-muted">You cannot block your own account.</p>
+        ) : isAdmin ? (
           <p className="text-xs text-ink-muted">Admin accounts cannot be blocked.</p>
         ) : null}
       </div>

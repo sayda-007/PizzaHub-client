@@ -83,7 +83,10 @@ export function orderTimeline(status) {
   }
 
   if (status === ORDER_STATUSES.REJECTED) {
-    return steps;
+    return steps.map((step, index) => ({
+      ...step,
+      label: index === steps.length - 1 ? "Rejected" : step.label,
+    }));
   }
 
   return steps.map((step, index) => ({
@@ -101,6 +104,10 @@ export function timelineState(status, index) {
 
   if (status === ORDER_STATUSES.CANCELLED) {
     return index === 0 ? "complete" : "cancelled";
+  }
+
+  if (status === ORDER_STATUSES.REJECTED) {
+    return index === decisionIndex ? "rejected" : "complete";
   }
 
   return index <= decisionIndex ? "complete" : "pending";

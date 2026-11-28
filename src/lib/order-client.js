@@ -1,4 +1,4 @@
-import { authClient } from "@/lib/auth-client";
+import { getBearerToken } from "@/lib/api-client";
 
 const ORDER_PATH = "/api/orders";
 
@@ -66,27 +66,17 @@ function fieldErrors(payload) {
   return fields;
 }
 
-/** Better Auth v1.7.27 exposes the jwt() plugin's GET /api/auth/token as token(). */
-async function getBearerToken() {
-  let result;
+export async function createOrder(payload) {
+  let token;
 
   try {
-    result = await authClient.token();
-  } catch {
-    throw new OrderApiError("We couldn't verify your session. Please sign in again.");
+    token = await getBearerToken();
+  } catch (error) {
+    throw new OrderApiError(
+      error?.message ?? "We couldn't verify your session. Please sign in again.",
+      { status: error?.status ?? null, code: error?.code ?? "" },
+    );
   }
-
-  if (result?.error || typeof result?.data?.token !== "string" || !result.data.token) {
-    throw new OrderApiError("We couldn't verify your session. Please sign in again.", {
-      status: result?.error?.status ?? null,
-    });
-  }
-
-  return result.data.token;
-}
-
-export async function createOrder(payload) {
-  const token = await getBearerToken();
 
   let response;
 

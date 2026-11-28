@@ -12,6 +12,7 @@ import {
 } from "@/components/auth/AuthFields";
 import FormMessage from "@/components/auth/FormMessage";
 import { Button } from "@/components/ui/button";
+import { clearBearerTokenCache } from "@/lib/api-client";
 import { authHref, safeReturnPath } from "@/lib/safe-return";
 import {
   authClient,
@@ -60,6 +61,7 @@ export default function SignInForm({ initialError = "", returnTo = "" }) {
     }
 
     setStatus("email");
+    clearBearerTokenCache();
 
     try {
       const result = await authClient.signIn.email({
@@ -77,7 +79,7 @@ export default function SignInForm({ initialError = "", returnTo = "" }) {
       setSuccess(
         returnPath
           ? "Signed in successfully. Taking you back..."
-          : "Signed in successfully. Taking you to the menu...",
+          : "Signed in successfully. Taking you to your dashboard...",
       );
       router.replace(destination);
     } catch (error) {
@@ -98,7 +100,7 @@ export default function SignInForm({ initialError = "", returnTo = "" }) {
 
     try {
       const result = await signInWithGoogle({
-        callbackURL: returnPath || "/menu",
+        callbackURL: returnPath || "/dashboard",
         errorPath: authHref("/sign-in", {
           returnTo: returnPath,
           error: "google",

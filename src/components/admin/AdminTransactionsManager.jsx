@@ -12,7 +12,7 @@ import {
 import Pagination from "@/components/dashboard/Pagination";
 import { Button } from "@/components/ui/button";
 import { friendlyApiError } from "@/lib/api-client";
-import { ACCOUNT_ROLES } from "@/lib/auth-client";
+import { ACCOUNT_ROLES, useAuthorizedSession } from "@/lib/auth-client";
 import { listAdminTransactions } from "@/lib/dashboard-client";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { statusBadgeClass } from "@/lib/status";
@@ -116,6 +116,7 @@ function formatEventCreated(value) {
 }
 
 function AdminTransactionsContent() {
+  const { canLoad } = useAuthorizedSession([ACCOUNT_ROLES.ADMIN]);
   const [draft, setDraft] = useState({ ...EMPTY_FILTERS });
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
   const [page, setPage] = useState(1);
@@ -127,6 +128,10 @@ function AdminTransactionsContent() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!canLoad) {
+      return undefined;
+    }
+
     let active = true;
 
     // Async data load: state updates happen after the request, not during render.
@@ -168,7 +173,7 @@ function AdminTransactionsContent() {
     return () => {
       active = false;
     };
-  }, [filters, page, reloadKey]);
+  }, [canLoad, filters, page, reloadKey]);
 
   function applyFilters(next) {
     const normalized = {
@@ -420,7 +425,9 @@ function AdminTransactionCard({ transaction }) {
           </h3>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <TransactionStatusBadge status={transaction.status} />
+          <TransactionStatusBadge
+            status={transaction.paymentStatus ?? transaction.status}
+          />
           <span className="font-heading text-lg text-charcoal">{amountLabel}</span>
         </div>
       </div>

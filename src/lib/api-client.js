@@ -4,8 +4,10 @@ import { authClient } from "@/lib/auth-client";
  * Thin fetch wrapper for the JWT-protected backend APIs.
  *
  * Every path is same-origin and goes through the Next.js `/api/:path*` rewrite.
- * The JWT comes from Better Auth on each call; roles, ownership and business
- * rules are always decided by the server, never by these helpers.
+ * The JWT is minted by Better Auth and cached until it nears expiry, so normal
+ * dashboard usage does not spend the shared API rate-limit budget on token
+ * requests. Roles, ownership and business rules are always decided by the
+ * server, never by these helpers.
  */
 export class ApiClientError extends Error {
   constructor(message, details = {}) {
@@ -35,6 +37,10 @@ function responseMessage(payload, status) {
     return "You do not have permission to do that.";
   }
 
+  if (status === 429) {
+    return "Too many requests. Please wait a moment and try again.";
+  }
+
   if (status === 503) {
     return "This service is not configured on this deployment yet.";
   }
@@ -42,26 +48,109 @@ function responseMessage(payload, status) {
   return "The request could not be completed. Please try again.";
 }
 
-async function bearerToken() {
-  let result;
+let cachedToken = "";
+let cachedTokenExpiresAt = 0;
+let pendingTokenRequest = null;
+let cacheGeneration = 0;
+
+const TOKEN_EXPIRY_SKEW_MS = 60_000;
+
+/** Read `exp` without verifying it; the backend performs real verification. */
+function jwtExpiresAt(token) {
+  const parts = token.split(".");
+
+  if (parts.length !== 3 || typeof atob !== "function") {
+    return 0;
+  }
 
   try {
-    result = await authClient.token();
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded));
+    return typeof payload?.exp === "number" ? payload.exp * 1000 : 0;
   } catch {
-    throw new ApiClientError("We couldn't verify your session. Please sign in again.", {
-      status: 401,
+    return 0;
+  }
+}
+
+/** Call after sign-in, sign-up or sign-out so one account's token is never reused. */
+export function clearBearerTokenCache() {
+  cacheGeneration += 1;
+  cachedToken = "";
+  cachedTokenExpiresAt = 0;
+  pendingTokenRequest = null;
+}
+
+function sessionTokenError(error) {
+  const status = Number(error?.status) || 401;
+  const code = typeof error?.code === "string" ? error.code : "";
+
+  if (status === 429) {
+    return new ApiClientError("Too many requests. Please wait a moment and try again.", {
+      status,
+      code: code || "RATE_LIMITED",
     });
   }
 
-  const token = result?.data?.token;
+  return new ApiClientError("We couldn't verify your session. Please sign in again.", {
+    status,
+    code,
+  });
+}
 
-  if (result?.error || typeof token !== "string" || !token) {
-    throw new ApiClientError("We couldn't verify your session. Please sign in again.", {
-      status: 401,
-    });
+/**
+ * Return a usable JWT, sharing one in-flight request across simultaneous
+ * callers and caching the result until shortly before its expiry.
+ */
+export async function getBearerToken({ forceRefresh = false } = {}) {
+  const now = Date.now();
+
+  if (!forceRefresh && cachedToken && now + TOKEN_EXPIRY_SKEW_MS < cachedTokenExpiresAt) {
+    return cachedToken;
   }
 
-  return token;
+  if (pendingTokenRequest) {
+    return pendingTokenRequest;
+  }
+
+  const generation = cacheGeneration;
+
+  pendingTokenRequest = (async () => {
+    let result;
+
+    try {
+      result = await authClient.token();
+    } catch (error) {
+      throw sessionTokenError(error);
+    }
+
+    if (result?.error) {
+      throw sessionTokenError(result.error);
+    }
+
+    const token = result?.data?.token;
+
+    if (typeof token !== "string" || !token) {
+      throw sessionTokenError(null);
+    }
+
+    const expiresAt = jwtExpiresAt(token);
+
+    if (generation === cacheGeneration && expiresAt > Date.now()) {
+      cachedToken = token;
+      cachedTokenExpiresAt = expiresAt;
+    }
+
+    return token;
+  })();
+
+  try {
+    return await pendingTokenRequest;
+  } finally {
+    if (generation === cacheGeneration) {
+      pendingTokenRequest = null;
+    }
+  }
 }
 
 function requireApiPath(path) {
@@ -98,7 +187,7 @@ export async function apiRequest(path, options = {}) {
   const headers = { Accept: "application/json" };
 
   if (authenticated) {
-    headers.Authorization = `Bearer ${await bearerToken()}`;
+    headers.Authorization = `Bearer ${await getBearerToken()}`;
   }
 
   if (body !== undefined) {
@@ -127,6 +216,10 @@ export async function apiRequest(path, options = {}) {
   const payload = await parseResponse(response);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearBearerTokenCache();
+    }
+
     throw new ApiClientError(responseMessage(payload, response.status), {
       code: payload?.code,
       status: response.status,
@@ -142,7 +235,7 @@ export async function apiUpload(path, formData, options = {}) {
   requireApiPath(path);
   const headers = {
     Accept: "application/json",
-    Authorization: `Bearer ${await bearerToken()}`,
+    Authorization: `Bearer ${await getBearerToken()}`,
   };
 
   let response;
@@ -167,6 +260,10 @@ export async function apiUpload(path, formData, options = {}) {
   const payload = await parseResponse(response);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearBearerTokenCache();
+    }
+
     throw new ApiClientError(responseMessage(payload, response.status), {
       code: payload?.code,
       status: response.status,

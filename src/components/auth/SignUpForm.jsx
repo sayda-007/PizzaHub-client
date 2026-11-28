@@ -13,6 +13,7 @@ import {
 } from "@/components/auth/AuthFields";
 import FormMessage from "@/components/auth/FormMessage";
 import { Button } from "@/components/ui/button";
+import { clearBearerTokenCache } from "@/lib/api-client";
 import { authHref, safeReturnPath } from "@/lib/safe-return";
 import {
   ACCOUNT_ROLES,
@@ -114,6 +115,7 @@ export default function SignUpForm({ initialError = "", returnTo = "" }) {
     }
 
     setStatus("email");
+    clearBearerTokenCache();
     let succeeded = false;
 
     try {
@@ -144,7 +146,7 @@ export default function SignUpForm({ initialError = "", returnTo = "" }) {
       setSuccess(
         returnPath
           ? "Account created successfully. Taking you back..."
-          : "Account created successfully. Taking you to the menu...",
+          : "Account created successfully. Taking you to your dashboard...",
       );
       redirectTimer.current = window.setTimeout(() => {
         router.replace(destination);
@@ -171,8 +173,8 @@ export default function SignUpForm({ initialError = "", returnTo = "" }) {
       // Google creates the account on the server. The public role is passed
       // through Better Auth's OAuth data; Admin is never an option here.
       const result = await signInWithGoogle({
-        callbackURL: returnPath || "/menu",
-        newUserCallbackURL: returnPath || "/menu",
+        callbackURL: returnPath || "/dashboard",
+        newUserCallbackURL: returnPath || "/dashboard",
         errorPath: authHref("/sign-up", {
           returnTo: returnPath,
           error: "google",

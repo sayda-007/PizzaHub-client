@@ -13,12 +13,13 @@ import OrderTimeline from "@/components/dashboard/OrderTimeline";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import MenuImage from "@/components/menu/MenuImage";
 import { Button } from "@/components/ui/button";
-import { ACCOUNT_ROLES } from "@/lib/auth-client";
+import { ACCOUNT_ROLES, useAuthorizedSession } from "@/lib/auth-client";
 import { cancelCustomerOrder, getCustomerOrder } from "@/lib/dashboard-client";
-import { formatDateTime, formatPrice } from "@/lib/format";
+import { formatDate, formatDateTime, formatPrice } from "@/lib/format";
 import { ORDER_STATUSES } from "@/lib/status";
 
 export default function OrderDetail({ id }) {
+  const { canLoad } = useAuthorizedSession([ACCOUNT_ROLES.CUSTOMER]);
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -41,10 +42,14 @@ export default function OrderDetail({ id }) {
   }, [id]);
 
   useEffect(() => {
+    if (!canLoad) {
+      return undefined;
+    }
+
     // Async data load: state updates happen after the request, not during render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
-  }, [load]);
+  }, [canLoad, load]);
 
   async function confirmCancel() {
     setCancelling(true);
@@ -123,7 +128,7 @@ export default function OrderDetail({ id }) {
                     </p>
                     <p className="mt-1.5 flex items-center gap-2 font-medium text-charcoal">
                       <CalendarDays aria-hidden="true" className="size-4 text-tomato" />
-                      {formatDateTime(order.deliveryDate)}
+                      {formatDate(order.deliveryDate)}
                     </p>
                   </div>
                   <div className="rounded-sm border border-line bg-paper p-3">

@@ -19,6 +19,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 `PIZZAHUB_BACKEND_URL` is optional and server-only. It defaults to `https://pizzahub-server-xi.vercel.app`. A bare origin, an origin with a trailing slash, or an accidentally supplied `/api/menu` URL all resolve to the same backend origin. The Next.js rewrite forwards every same-origin `/api/*` request there, so browser code never reads this variable or a backend credential. Do not prefix it with `NEXT_PUBLIC_`.
 
+The Better Auth client pins its base URL to the live browser origin plus `/api/auth`, so a stray public auth environment variable cannot bypass that rewrite. On the backend, `BETTER_AUTH_URL` and `CLIENT_URL` must both be the public frontend origin for this deployment style.
+
 ## Scripts
 
 | Script          | Description                              |
@@ -27,6 +29,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run build` | Create a production build (Turbopack)    |
 | `npm run start` | Serve the production build               |
 | `npm run lint`  | Run ESLint                               |
+| `npm test`      | Run dependency-free Node regression tests |
 
 ## Project structure
 

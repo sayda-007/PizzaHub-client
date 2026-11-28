@@ -7,9 +7,10 @@ import { ArrowRight, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ACCOUNT_ROLES,
-  authClient,
   getDashboardHref,
   getSessionAccountRole,
+  sessionErrorMessage,
+  useAuthSession,
 } from "@/lib/auth-client";
 import { authHref } from "@/lib/safe-return";
 
@@ -67,9 +68,10 @@ export default function DashboardShell({
   children,
 }) {
   const pathname = usePathname();
-  const { data: session, isPending } = authClient.useSession();
+  const { session, sessionError, isPending, isRefetching, refetch } = useAuthSession();
   const role = getSessionAccountRole(session);
-  const isAllowed = allowedRoles?.length ? allowedRoles.includes(role) : Boolean(role);
+  const hasAllowedRoles = Array.isArray(allowedRoles) && allowedRoles.length > 0;
+  const isAllowed = hasAllowedRoles && Boolean(role) && allowedRoles.includes(role);
 
   if (isPending) {
     return (
@@ -78,6 +80,29 @@ export default function DashboardShell({
           <div className="h-72 animate-pulse rounded-sm border border-line bg-muted" />
         </div>
       </main>
+    );
+  }
+
+  if (sessionError && !session?.user) {
+    return (
+      <Gate
+        title="We couldn't check your session"
+        description={sessionErrorMessage(sessionError)}
+        actionHref={authHref("/sign-in", { returnTo: pathname })}
+        actionLabel="Sign in"
+      >
+        <div className="mt-4 text-center">
+          <Button
+            type="button"
+            variant="outline"
+            className="border-line bg-paper text-charcoal"
+            disabled={isRefetching}
+            onClick={() => refetch()}
+          >
+            {isRefetching ? "Retrying..." : "Try again"}
+          </Button>
+        </div>
+      </Gate>
     );
   }
 

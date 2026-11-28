@@ -21,7 +21,9 @@ import {
   authClient,
   getDashboardHref,
   getSessionAccountRole,
+  useAuthSession,
 } from "@/lib/auth-client";
+import { clearBearerTokenCache } from "@/lib/api-client";
 import { authHref } from "@/lib/safe-return";
 
 const navigation = [
@@ -30,7 +32,7 @@ const navigation = [
 ];
 
 export default function Navbar() {
-  const { data: session, isPending } = authClient.useSession();
+  const { session, isPending } = useAuthSession();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -84,7 +86,9 @@ export default function Navbar() {
         return;
       }
 
+      clearBearerTokenCache();
       setOpen(false);
+      router.replace("/");
       router.refresh();
     } catch {
       setLogoutError("We couldn't sign you out. Please try again.");
